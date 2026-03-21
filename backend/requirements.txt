@@ -1,0 +1,10 @@
+# Contenido de backend/requirements.txt
+fastapi
+uvicorn[standard]
+pydantic
+psycopg2-binary
+Pillow
+numpy
+easyocr
+python-multipart
+opencv-python-headless  # Agregar esta línea

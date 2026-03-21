@@ -1,0 +1,57 @@
+# ------------------------------------------------------------------
+# 1. ESPECÍFICO DEL PROYECTO (¡CRÍTICO!)
+# ------------------------------------------------------------------
+
+# Datos persistentes de la base de datos (Docker Volume)
+data/
+
+# Archivos grandes del modelo de Visión Artificial (CV)
+# Asegúrate de que este directorio no se suba, ya que contendrá pesos grandes.
+backend/model_data/
+
+# Variables de entorno con credenciales (NUNCA subir)
+.env
+.flaskenv
+
+# ------------------------------------------------------------------
+# 2. PYTHON (Backend FastAPI)
+# ------------------------------------------------------------------
+# Byte-code files
+*.pyc
+__pycache__/
+
+# Directorios de entorno virtual
+/venv/
+/env/
+
+# Entornos de desarrollo/IDE
+.vscode/
+.idea/
+
+# Herramientas de pruebas
+.pytest_cache
+
+# ------------------------------------------------------------------
+# 3. FLUTTER (Aplicación Móvil)
+# ------------------------------------------------------------------
+
+# Compilados generados automáticamente
+/build/
+
+# Archivos de caché y herramientas de Dart
+.dart_tool/
+.flutter-plugins
+.packages
+.pub-cache/
+
+# Archivos de log
+*.log
+
+# ------------------------------------------------------------------
+# 4. SISTEMAS OPERATIVOS
+# ------------------------------------------------------------------
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
