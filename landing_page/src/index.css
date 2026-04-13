@@ -1,0 +1,54 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@theme {
+  --font-headline: "Noto Serif", serif;
+  --font-body: "Inter", sans-serif;
+
+  --color-primary: #994531;
+  --color-primary-container: #E8836A;
+  --color-on-primary: #ffffff;
+  --color-on-primary-fixed-variant: #7a2f1c;
+  
+  --color-surface: #fff8f5;
+  --color-surface-container-low: #fcf2ee;
+  --color-surface-container-high: #f0e6e2;
+  --color-surface-container-highest: #eae1dd;
+  --color-surface-container-lowest: #ffffff;
+  
+  --color-on-surface: #1f1b19;
+  --color-on-surface-variant: #55433e;
+  
+  --color-tertiary: #006b5c;
+  --color-tertiary-container: #34b19b;
+
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-on-surface font-body antialiased;
+  }
+}
+
+.glass-panel {
+  background: rgba(255, 248, 245, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.pulse-ai {
+  position: relative;
+}
+
+.pulse-ai::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(45deg, #994531, #E8836A, #ffb4a2);
+  z-index: -1;
+  opacity: 0.3;
+}
