@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../app_theme.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   CustomAppBar({super.key});
@@ -18,10 +19,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       centerTitle: true,
       elevation: 0,
+      backgroundColor: AppTheme.primary,
+      foregroundColor: AppTheme.textOnPrimary,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF1A237E), Color(0xFF283593)], // navy shades
+            colors: [AppTheme.primary, AppTheme.primaryDark],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -38,15 +41,15 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(25),
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                 ),
                 child: Row(
                   children: [
                     Text(
                       username,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textOnPrimary,
                         fontWeight: FontWeight.w500,
                         fontSize: 14,
                       ),
@@ -81,10 +84,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                           }
                         }
                       },
-                      child: const CircleAvatar(
-                        backgroundColor: Colors.indigo,
+                      child: CircleAvatar(
+                        backgroundColor: AppTheme.primaryDark,
                         radius: 16,
-                        child: Icon(Icons.person, color: Colors.white, size: 18),
+                        child: const Icon(Icons.person, color: AppTheme.textOnPrimary, size: 18),
                       ),
                     ),
                   ],
@@ -95,7 +98,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ],
       leading: IconButton(
-        icon: const Icon(Icons.menu, color: Colors.white),
+        icon: const Icon(Icons.menu, color: AppTheme.textOnPrimary),
         onPressed: () {
           Scaffold.of(context).openDrawer();
         },

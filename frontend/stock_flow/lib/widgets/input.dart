@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-// Asumo que tienes este import para AppTheme
-// import '../app_theme.dart';
+import '../app_theme.dart';
 
 class Input extends FormField<String> {
   final String? hintText;
@@ -108,7 +106,7 @@ class Input extends FormField<String> {
               minLines: isSingleLine ? 1 : maxLines,
               maxLines: maxLines,
               textAlign: textAlign ?? TextAlign.start,
-              style: textStyle ?? const TextStyle(color: Colors.black, fontSize: 13),
+              style: textStyle ?? const TextStyle(color: AppTheme.textDark, fontSize: 13),
               inputFormatters: inputFormatters,
 
               // Aplicar la acción del teclado
@@ -119,16 +117,16 @@ class Input extends FormField<String> {
 
               decoration: InputDecoration(
                 hintText: hintText ?? '',
-                hintStyle: hintStyle ?? const TextStyle(color: Colors.grey),
+                hintStyle: hintStyle ?? const TextStyle(color: AppTheme.textLight),
                 filled: true,
-                fillColor: backgroundColor ?? Colors.white,
+                fillColor: backgroundColor ?? AppTheme.surface,
                 contentPadding: EdgeInsets.symmetric(
                   vertical: verticalPadding,
                   horizontal: horizontalPadding,
                 ),
                 suffixIcon: icon != null
                     ? IconButton(
-                  icon: Icon(icon, color: Colors.grey),
+                  icon: Icon(icon, color: AppTheme.textLight),
                   onPressed: enabled ? onIconPressed : null,
                 )
                     : null,
@@ -137,7 +135,7 @@ class Input extends FormField<String> {
                 border: OutlineInputBorder(
                   borderRadius: borderRadius ?? BorderRadius.circular(8.0),
                   borderSide: BorderSide(
-                    color: state.hasError ? Colors.red : borderColor ?? Colors.grey,
+                    color: state.hasError ? AppTheme.error : borderColor ?? AppTheme.border,
                     width: borderWidth,
                   ),
                 ),
@@ -151,7 +149,7 @@ class Input extends FormField<String> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: borderRadius ?? BorderRadius.circular(8.0),
                   borderSide: BorderSide(
-                    color: state.hasError ? Colors.red : borderColor ?? Colors.blue,
+                    color: state.hasError ? AppTheme.error : borderColor ?? AppTheme.primary,
                     width: borderWidth,
                   ),
                 ),

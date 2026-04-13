@@ -148,11 +148,11 @@ class _SimpleTableState extends State<SimpleTable> {
                               children: [
                                 if(!isEditing)...[
                                   IconButton(
-                                    icon: const Icon(Icons.edit, color: Colors.black, size: 25,),
+                                    icon: const Icon(Icons.edit, color: AppTheme.textDark, size: 25,),
                                     onPressed: () => _toggleEdit(index),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.black, size: 25,),
+                                    icon: const Icon(Icons.delete, color: AppTheme.textDark, size: 25,),
                                     onPressed: () => _removeItem(index: index),
                                   ),
                                 ],
@@ -163,7 +163,7 @@ class _SimpleTableState extends State<SimpleTable> {
                                   ),
                                   const SizedBox(width: 5,),
                                   IconButton(
-                                    icon: const Icon(Icons.cancel, color: Colors.black,size: 25,),
+                                    icon: const Icon(Icons.cancel, color: AppTheme.textDark,size: 25,),
                                     onPressed: () => _toggleEdit(null),
                                   ),
                                 ]

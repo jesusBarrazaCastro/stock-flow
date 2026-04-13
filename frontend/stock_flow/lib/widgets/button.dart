@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:google_fonts/google_fonts.dart';
 import '../app_theme.dart';
 
 class Button extends StatelessWidget {
@@ -31,23 +31,32 @@ class Button extends StatelessWidget {
       height: height,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? AppTheme.light.primaryColor,
+          backgroundColor: backgroundColor ?? AppTheme.primary,
+          foregroundColor: AppTheme.textOnPrimary,
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: borderRadius ?? BorderRadius.circular(8.0),
+            borderRadius: borderRadius ?? BorderRadius.circular(AppTheme.radiusFull),
           ),
-          surfaceTintColor: Colors.white
+          surfaceTintColor: Colors.transparent,
         ),
         onPressed: onPressed,
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             if(icon != null)...[
-              Icon(icon!, color: Colors.white,),
+              Icon(icon!, color: AppTheme.textOnPrimary, size: 20),
+              const SizedBox(width: 6),
             ],
-            Expanded(
+            Flexible(
               child: Text(
                 text,
-                style: textStyle ?? const TextStyle(color: Colors.white),
+                style: textStyle ?? GoogleFonts.manrope(
+                  color: AppTheme.textOnPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
                 textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],

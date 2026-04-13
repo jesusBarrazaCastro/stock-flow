@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_theme.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/main_navigation.dart';
 
 void main() {
   runApp(const StockFlowApp());
@@ -15,7 +15,7 @@ class StockFlowApp extends StatelessWidget {
       title: 'Stock Flow',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.tema,
-      home: const DashboardScreen(),
+      home: const MainNavigation(),
     );
   }
 }

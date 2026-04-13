@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_theme.dart';
 
 class Dropdown<T> extends StatelessWidget {
   final String? labelText;
@@ -39,8 +40,8 @@ class Dropdown<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color effectiveBackgroundColor = (enabled == true)
-        ? (backgroundColor ?? Colors.white)
-        : (backgroundColor ?? Colors.grey).withOpacity(0.3);
+        ? (backgroundColor ?? AppTheme.surface)
+        : (backgroundColor ?? AppTheme.surfaceVariant).withOpacity(0.3);
 
     final ValueChanged<T?>? effectiveOnChanged = (enabled == true) ? onChanged : null;
 
@@ -61,7 +62,7 @@ class Dropdown<T> extends StatelessWidget {
               color: effectiveBackgroundColor,
               borderRadius: borderRadius ?? BorderRadius.circular(8.0),
               border: Border.all(
-                color: borderColor ?? Colors.grey,
+                color: borderColor ?? AppTheme.border,
                 width: borderWidth,
               ),
             ),
@@ -74,7 +75,7 @@ class Dropdown<T> extends StatelessWidget {
                   onChanged: effectiveOnChanged,
                   isExpanded: true,
                   dropdownColor: dropdownColor ?? effectiveBackgroundColor,
-                  style: textStyle ?? const TextStyle(color: Colors.black),
+                  style: textStyle ?? const TextStyle(color: AppTheme.textDark),
                   icon: Icon(
                       Icons.arrow_drop_down,
                       color: borderColor ?? Theme.of(context).primaryColor.withOpacity(enabled == true ? 1.0 : 0.4)

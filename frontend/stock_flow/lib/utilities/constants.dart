@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import '../app_theme.dart';
 
 class Constants {
 
   static Color getColorForRole(String role) {
     switch (role.toLowerCase()) {
       case 'admin':
-        return Colors.indigo;
+        return AppTheme.primary;
       case 'supervisor':
-        return Colors.teal;
+        return AppTheme.tertiary;
       case 'tecnico':
-        return Colors.lightBlue;
+        return AppTheme.secondary;
       default:
-        return Colors.grey;
+        return AppTheme.textLight;
     }
   }
 

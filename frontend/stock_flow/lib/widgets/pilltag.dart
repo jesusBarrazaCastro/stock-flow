@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../app_theme.dart';
 
 class PillTag extends StatelessWidget {
   final String text;
@@ -9,8 +11,8 @@ class PillTag extends StatelessWidget {
   const PillTag({
     super.key,
     required this.text,
-    this.backgroundColor = Colors.blueGrey,
-    this.textColor = Colors.white,
+    this.backgroundColor = AppTheme.tertiary,
+    this.textColor = AppTheme.textOnPrimary,
     this.icon,
   });
 
@@ -18,23 +20,25 @@ class PillTag extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 30,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(12), // pill shape
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if(icon != null)...[
-            Icon(icon, color: Colors.white,),
-            const SizedBox(width: 3,)
+            Icon(icon, color: textColor, size: 16),
+            const SizedBox(width: 4,)
           ],
           Text(
             text,
-            style: TextStyle(
+            style: GoogleFonts.manrope(
               color: textColor,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
             ),
           ),
         ],

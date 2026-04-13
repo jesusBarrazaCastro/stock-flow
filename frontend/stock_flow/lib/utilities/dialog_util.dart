@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_theme.dart';
 
 class DialogUtil {
   /// Opens a dialog with a custom widget and a close button
@@ -10,7 +11,7 @@ class DialogUtil {
     double? height,
     EdgeInsetsGeometry padding = const EdgeInsets.all(16),
     bool barrierDismissible = true,
-    Color backgroundColor = Colors.white,
+    Color backgroundColor = AppTheme.surface,
     BorderRadiusGeometry borderRadius = const BorderRadius.all(Radius.circular(16)),
     bool? showCloseButton = false,
   }) {
@@ -34,7 +35,7 @@ class DialogUtil {
                     const Spacer(),
                     if(showCloseButton??false)
                     InkWell(
-                      child: const Icon(Icons.close, color: Colors.black,),
+                      child: const Icon(Icons.close, color: AppTheme.textDark,),
                       onTap: () {
                         Navigator.of(context).pop();
                       },
