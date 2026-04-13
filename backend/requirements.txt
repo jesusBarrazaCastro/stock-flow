@@ -4,7 +4,5 @@ uvicorn[standard]
 pydantic
 psycopg2-binary
 Pillow
-numpy
-easyocr
+anthropic>=0.25.0
 python-multipart
-opencv-python-headless  # Agregar esta línea
