@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:stock_flow/app_theme.dart';
+import 'manual_registration_screen.dart';
+import 'stock_screen.dart';
+import 'data_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -32,7 +35,7 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: 28),
 
               // ── Sección: Gestión de Almacén ────────────────────────
-              _buildGestionAlmacenSection(),
+              _buildGestionAlmacenSection(context),
 
               const SizedBox(height: 28),
 
@@ -318,12 +321,21 @@ class DashboardScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Proyecciones\nPróxima Semana',
+                      'Proyecciones: Lámpara Nórdica',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: AppTheme.textDark,
                         height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Basado en actividad de los últimos 30 días',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textLight,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -409,18 +421,33 @@ class DashboardScreen extends StatelessWidget {
     ];
 
     return SizedBox(
-      height: 80,
+      height: 100,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(7, (index) {
-          return Container(
-            width: 24,
-            height: 80 * heights[index],
-            decoration: BoxDecoration(
-              color: colors[index],
-              borderRadius: BorderRadius.circular(6),
-            ),
+          final value = (heights[index] * 50).toInt(); // Escala simulada
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                '$value',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: index == 5 ? AppTheme.tertiary : AppTheme.textLight,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                width: 24,
+                height: 70 * heights[index],
+                decoration: BoxDecoration(
+                  color: colors[index],
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ],
           );
         }),
       ),
@@ -430,7 +457,7 @@ class DashboardScreen extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════════════════
   // GESTIÓN DE ALMACÉN
   // ═══════════════════════════════════════════════════════════════════════
-  Widget _buildGestionAlmacenSection() {
+  Widget _buildGestionAlmacenSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -453,6 +480,13 @@ class DashboardScreen extends StatelessWidget {
                 label: 'Registrar\nentrada',
                 color: AppTheme.primary,
                 isFilled: true,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const ManualRegistrationScreen(initialIsEntry: true),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -462,6 +496,13 @@ class DashboardScreen extends StatelessWidget {
                 label: 'Registrar salida',
                 color: AppTheme.primary,
                 isFilled: false,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const ManualRegistrationScreen(initialIsEntry: false),
+                  ),
+                ),
               ),
             ),
           ],
@@ -475,6 +516,12 @@ class DashboardScreen extends StatelessWidget {
                 label: 'Consultar stock',
                 color: AppTheme.textMedium,
                 isFilled: false,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const StockScreen(),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -484,6 +531,12 @@ class DashboardScreen extends StatelessWidget {
                 label: 'Ver reportes',
                 color: AppTheme.textMedium,
                 isFilled: false,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const DataScreen(),
+                  ),
+                ),
               ),
             ),
           ],
@@ -497,50 +550,54 @@ class DashboardScreen extends StatelessWidget {
     required String label,
     required Color color,
     required bool isFilled,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      decoration: BoxDecoration(
-        color: isFilled ? AppTheme.primary : Colors.white,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        boxShadow: [
-          BoxShadow(
-            color: (isFilled ? AppTheme.primary : AppTheme.primary)
-                .withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: isFilled
-                  ? Colors.white.withOpacity(0.2)
-                  : color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isFilled ? AppTheme.primary : Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          boxShadow: [
+            BoxShadow(
+              color: (isFilled ? AppTheme.primary : AppTheme.primary)
+                  .withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-            child: Icon(
-              icon,
-              color: isFilled ? Colors.white : color,
-              size: 24,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isFilled
+                    ? Colors.white.withOpacity(0.2)
+                    : color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: isFilled ? Colors.white : color,
+                size: 24,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isFilled ? Colors.white : AppTheme.textDark,
-              height: 1.3,
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isFilled ? Colors.white : AppTheme.textDark,
+                height: 1.3,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

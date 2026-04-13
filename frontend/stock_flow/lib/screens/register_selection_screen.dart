@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:stock_flow/app_theme.dart';
 import 'package:stock_flow/screens/voice_registration_screen.dart';
+import 'package:stock_flow/screens/camera_registration_screen.dart';
+import 'package:stock_flow/screens/manual_registration_screen.dart';
 
 class RegisterSelectionScreen extends StatelessWidget {
   const RegisterSelectionScreen({super.key});
@@ -69,7 +71,14 @@ class RegisterSelectionScreen extends StatelessWidget {
                           description: 'Escaneo automático con IA.',
                           buttonText: 'ESCANEAR',
                           isSmart: true,
-                          onTap: () {},
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const CameraRegistrationScreen(),
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 16),
                         _buildSelectionCard(
@@ -100,7 +109,14 @@ class RegisterSelectionScreen extends StatelessWidget {
                           description: 'Ingreso manual paso a paso.',
                           buttonText: 'INGRESAR',
                           isSmart: false,
-                          onTap: () {},
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ManualRegistrationScreen(),
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 48),
                       ],
