@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stock_flow/app_theme.dart';
+import 'package:stock_flow/screens/voice_registration_screen.dart';
 
 class RegisterSelectionScreen extends StatelessWidget {
   const RegisterSelectionScreen({super.key});
@@ -77,7 +78,14 @@ class RegisterSelectionScreen extends StatelessWidget {
                           description: 'Dictado inteligente asistido.',
                           buttonText: 'DICTAR',
                           isSmart: true,
-                          onTap: () {},
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const VoiceRegistrationScreen(),
+                              ),
+                            );
+                          },
                         ),
 
                         const SizedBox(height: 32),
