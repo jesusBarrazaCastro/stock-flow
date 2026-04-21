@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:stock_flow/app_theme.dart';
 import '../providers/product_provider.dart';
 import '../services/product_service.dart';
+import '../utilities/msg_util.dart';
 import 'product_detail_screen.dart';
+import 'edit_product_screen.dart';
 
 class CatalogScreen extends StatefulWidget {
   const CatalogScreen({super.key});
@@ -45,6 +47,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.neutral,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final added = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(builder: (_) => const EditProductScreen()),
+          );
+          if (added == true && context.mounted) {
+            MsgtUtil.showSuccess(context, 'Producto creado correctamente');
+            context.read<ProductProvider>().loadCatalogo(resetPage: true);
+          }
+        },
+        backgroundColor: AppTheme.primary,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
       appBar: AppBar(
         backgroundColor: AppTheme.neutral,
         elevation: 0,

@@ -269,4 +269,17 @@ class ProductService {
       rethrow;
     }
   }
+
+  Future<void> createProducto(Map<String, dynamic> data) async {
+    try {
+      final response = await _api.post('/productos/', body: data);
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>?;
+        throw Exception(body?['detail'] ?? 'Error ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('[ProductService.createProducto] $e');
+      rethrow;
+    }
+  }
 }

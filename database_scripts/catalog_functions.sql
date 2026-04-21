@@ -198,7 +198,8 @@ $$;
 -- FUNCIÓN: public.write_productos
 -- Maneja escrituras sobre productos e inventario.
 -- Parámetro AC (acción):
---   'update' → Actualiza datos del producto y opcionalmente el inventario
+--   'register' → Crea un nuevo producto en el catálogo
+--   'update'   → Actualiza datos del producto y opcionalmente el inventario
 -- =============================================================
 CREATE OR REPLACE FUNCTION public.write_productos(
     p_ac               TEXT,
@@ -223,13 +224,60 @@ RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_old_qty INT;
-    v_diff    INT;
-    v_tipo    TEXT;
+    v_old_qty  INT;
+    v_diff     INT;
+    v_tipo     TEXT;
+    v_nuevo_id INT;
 BEGIN
 
+    -- ── REGISTER ─────────────────────────────────────────────────
+    IF p_ac = 'register' THEN
+
+        IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+            RETURN jsonb_build_object('error', 'El nombre del producto es requerido');
+        END IF;
+
+        IF p_sku IS NULL OR TRIM(p_sku) = '' THEN
+            RETURN jsonb_build_object('error', 'El SKU es requerido');
+        END IF;
+
+        IF EXISTS (
+            SELECT 1 FROM productos
+            WHERE sku = p_sku
+              AND empresa_id = p_empresa_id
+              AND registro_estado = TRUE
+        ) THEN
+            RETURN jsonb_build_object('error', 'Ya existe un producto con ese SKU en tu catálogo');
+        END IF;
+
+        INSERT INTO productos (
+            empresa_id, nombre, sku, descripcion, precio_unitario,
+            categoria_id, unidad_medida, stock_minimo, stock_maximo,
+            imagen_url, registro_usuario
+        ) VALUES (
+            p_empresa_id,
+            TRIM(p_nombre),
+            TRIM(p_sku),
+            p_descripcion,
+            COALESCE(p_precio_unitario, 0),
+            p_categoria_id,
+            COALESCE(NULLIF(p_unidad_medida, ''), 'unidad'),
+            COALESCE(p_stock_minimo, 0),
+            p_stock_maximo,
+            p_imagen_url,
+            p_usuario_id
+        )
+        RETURNING id INTO v_nuevo_id;
+
+        RETURN jsonb_build_object(
+            'ok',     true,
+            'id',     v_nuevo_id,
+            'nombre', TRIM(p_nombre),
+            'sku',    TRIM(p_sku)
+        );
+
     -- ── UPDATE ───────────────────────────────────────────────────
-    IF p_ac = 'update' THEN
+    ELSIF p_ac = 'update' THEN
 
         IF NOT EXISTS (
             SELECT 1 FROM productos

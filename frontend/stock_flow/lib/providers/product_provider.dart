@@ -94,6 +94,16 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
+  Future<String?> createProducto(Map<String, dynamic> data) async {
+    try {
+      await _service.createProducto(data);
+      await loadCatalogo(resetPage: true);
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
   void setSearch(String? query) {
     _searchQuery = (query == null || query.isEmpty) ? null : query;
     loadCatalogo(resetPage: true);

@@ -137,3 +137,15 @@ class CategoriaItem(BaseModel):
 
 class CategoriasList(BaseModel):
     items: List[CategoriaItem]
+
+class ProductoCatalogCreate(BaseModel):
+    nombre: str
+    sku: str
+    descripcion: Optional[str] = None
+    precio_unitario: float = 0.0
+    categoria_id: Optional[int] = None
+    unidad_medida: str = 'unidad'
+    stock_minimo: int = 0
+    stock_maximo: Optional[int] = None
+    imagen_url: Optional[str] = None
+    ubicacion_fisica: Optional[str] = None

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:stock_flow/app_theme.dart';
 import '../providers/product_provider.dart';
 import '../services/product_service.dart';
+import '../utilities/msg_util.dart';
 import 'edit_product_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -53,13 +54,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 icon: Icon(Icons.edit_outlined, color: AppTheme.primary),
                 onPressed: producto == null
                     ? null
-                    : () => Navigator.push(
+                    : () async {
+                        final updated = await Navigator.push<bool>(
                           context,
                           MaterialPageRoute(
                             builder: (_) =>
-                                EditProductScreen(producto: producto),
+                                EditProductScreen(productoId: producto.id),
                           ),
-                        ),
+                        );
+                        if (updated == true && context.mounted) {
+                          MsgtUtil.showSuccess(
+                              context, 'Producto actualizado correctamente');
+                          context
+                              .read<ProductProvider>()
+                              .loadDetalle(widget.productoId);
+                        }
+                      },
               );
             },
           ),

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:stock_flow/app_theme.dart';
 import '../providers/product_provider.dart';
 import '../services/product_service.dart';
+import '../utilities/msg_util.dart';
 
 class EditProductScreen extends StatefulWidget {
-  final ProductoDetalle producto;
+  final int? productoId;
 
-  const EditProductScreen({super.key, required this.producto});
+  const EditProductScreen({super.key, this.productoId});
+
+  bool get isEditing => productoId != null;
 
   @override
   State<EditProductScreen> createState() => _EditProductScreenState();
@@ -16,277 +20,405 @@ class EditProductScreen extends StatefulWidget {
 class _EditProductScreenState extends State<EditProductScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  late TextEditingController _nombreCtrl;
-  late TextEditingController _skuCtrl;
-  late TextEditingController _stockCtrl;
-  late TextEditingController _precioCtrl;
-  late TextEditingController _ubicacionCtrl;
-
+  final _nombreCtrl = TextEditingController();
+  final _skuCtrl = TextEditingController();
+  final _descripcionCtrl = TextEditingController();
+  final _precioCtrl = TextEditingController();
+  final _stockMinCtrl = TextEditingController(text: '0');
+  final _stockMaxCtrl = TextEditingController();
+  final _ubicacionCtrl = TextEditingController();
+  String _unidadMedida = 'unidad';
   int? _selectedCategoriaId;
+
   bool _isSaving = false;
+  bool _initialized = false;
+
+  static const _unidades = [
+    'unidad', 'kg', 'g', 'lt', 'ml', 'm', 'cm', 'caja', 'paquete', 'par',
+  ];
 
   @override
   void initState() {
     super.initState();
-    final p = widget.producto;
-    _nombreCtrl = TextEditingController(text: p.nombre);
-    _skuCtrl = TextEditingController(text: p.sku);
-    _stockCtrl = TextEditingController(text: '${p.stockTotal}');
-    _precioCtrl =
-        TextEditingController(text: p.precioUnitario.toStringAsFixed(2));
-    _ubicacionCtrl = TextEditingController(text: p.ubicacionFisica ?? '');
-    _selectedCategoriaId = p.categoriaId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<ProductProvider>();
+      provider.loadCategorias();
+      if (widget.isEditing) {
+        provider.loadDetalle(widget.productoId!);
+      }
+    });
   }
 
   @override
   void dispose() {
     _nombreCtrl.dispose();
     _skuCtrl.dispose();
-    _stockCtrl.dispose();
+    _descripcionCtrl.dispose();
     _precioCtrl.dispose();
+    _stockMinCtrl.dispose();
+    _stockMaxCtrl.dispose();
     _ubicacionCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _onSave() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _initFromProducto(ProductoDetalle p) {
+    if (_initialized) return;
+    _nombreCtrl.text = p.nombre;
+    _skuCtrl.text = p.sku;
+    _descripcionCtrl.text = p.descripcion ?? '';
+    _precioCtrl.text = p.precioUnitario.toStringAsFixed(2);
+    _unidadMedida = p.unidadMedida;
+    _stockMinCtrl.text = '${p.stockMinimo}';
+    _stockMaxCtrl.text = p.stockMaximo != null ? '${p.stockMaximo}' : '';
+    _ubicacionCtrl.text = p.ubicacionFisica ?? '';
+    _selectedCategoriaId = p.categoriaId;
+    _initialized = true;
+  }
 
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
+    if (widget.isEditing) {
+      await _doEdit();
+    } else {
+      await _doAdd();
+    }
+  }
+
+  Future<void> _doAdd() async {
+    final data = <String, dynamic>{
+      'nombre': _nombreCtrl.text.trim(),
+      'sku': _skuCtrl.text.trim(),
+      if (_descripcionCtrl.text.trim().isNotEmpty)
+        'descripcion': _descripcionCtrl.text.trim(),
+      'precio_unitario': double.tryParse(_precioCtrl.text) ?? 0.0,
+      'unidad_medida': _unidadMedida,
+      'stock_minimo': int.tryParse(_stockMinCtrl.text) ?? 0,
+      if (_stockMaxCtrl.text.trim().isNotEmpty)
+        'stock_maximo': int.tryParse(_stockMaxCtrl.text),
+      if (_ubicacionCtrl.text.trim().isNotEmpty)
+        'ubicacion_fisica': _ubicacionCtrl.text.trim(),
+      if (_selectedCategoriaId != null) 'categoria_id': _selectedCategoriaId,
+    };
+    final error = await context.read<ProductProvider>().createProducto(data);
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    if (error != null) {
+      MsgtUtil.showError(context, error);
+    } else {
+      Navigator.pop(context, true);
+    }
+  }
+
+  Future<void> _doEdit() async {
+    final provider = context.read<ProductProvider>();
+    final original = provider.selectedProducto!;
     final data = <String, dynamic>{};
 
     final nombre = _nombreCtrl.text.trim();
-    if (nombre.isNotEmpty && nombre != widget.producto.nombre) {
-      data['nombre'] = nombre;
-    }
+    if (nombre.isNotEmpty && nombre != original.nombre) data['nombre'] = nombre;
 
     final sku = _skuCtrl.text.trim();
-    if (sku.isNotEmpty && sku != widget.producto.sku) {
-      data['sku'] = sku;
+    if (sku.isNotEmpty && sku != original.sku) data['sku'] = sku;
+
+    final descripcion = _descripcionCtrl.text.trim();
+    if (descripcion != (original.descripcion ?? '')) {
+      data['descripcion'] = descripcion.isNotEmpty ? descripcion : null;
     }
 
-    final precioStr = _precioCtrl.text.trim();
-    final precio = double.tryParse(precioStr);
-    if (precio != null && precio != widget.producto.precioUnitario) {
+    final precio = double.tryParse(_precioCtrl.text.trim());
+    if (precio != null && precio != original.precioUnitario) {
       data['precio_unitario'] = precio;
     }
 
-    final ubicacion = _ubicacionCtrl.text.trim();
-    if (ubicacion.isNotEmpty && ubicacion != widget.producto.ubicacionFisica) {
-      data['ubicacion_fisica'] = ubicacion;
+    if (_unidadMedida != original.unidadMedida) {
+      data['unidad_medida'] = _unidadMedida;
     }
 
-    if (_selectedCategoriaId != widget.producto.categoriaId) {
+    final stockMin = int.tryParse(_stockMinCtrl.text.trim());
+    if (stockMin != null && stockMin != original.stockMinimo) {
+      data['stock_minimo'] = stockMin;
+    }
+
+    final stockMaxStr = _stockMaxCtrl.text.trim();
+    final stockMax = stockMaxStr.isNotEmpty ? int.tryParse(stockMaxStr) : null;
+    if (stockMax != original.stockMaximo) data['stock_maximo'] = stockMax;
+
+    final ubicacion = _ubicacionCtrl.text.trim();
+    if (ubicacion != (original.ubicacionFisica ?? '')) {
+      data['ubicacion_fisica'] = ubicacion.isNotEmpty ? ubicacion : null;
+    }
+
+    if (_selectedCategoriaId != original.categoriaId) {
       data['categoria_id'] = _selectedCategoriaId;
     }
 
-    final stockStr = _stockCtrl.text.trim();
-    final stockNuevo = int.tryParse(stockStr);
-    if (stockNuevo != null && stockNuevo != widget.producto.stockTotal) {
-      data['cantidad_nueva'] = stockNuevo;
-      if (widget.producto.almacenId != null) {
-        data['almacen_id'] = widget.producto.almacenId;
-      }
-    }
-
     if (data.isEmpty) {
+      setState(() => _isSaving = false);
       Navigator.pop(context);
       return;
     }
 
-    setState(() => _isSaving = true);
-
-    final error = await context
-        .read<ProductProvider>()
-        .updateProducto(widget.producto.id, data);
-
+    final error = await provider.updateProducto(widget.productoId!, data);
     if (!mounted) return;
     setState(() => _isSaving = false);
-
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: AppTheme.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
-        ),
-      );
+      MsgtUtil.showError(context, error);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Producto actualizado correctamente'),
-          backgroundColor: AppTheme.tertiary,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
-        ),
-      );
-      Navigator.pop(context);
+      Navigator.pop(context, true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.neutral,
-      appBar: AppBar(
-        backgroundColor: AppTheme.neutral,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.close, color: AppTheme.textDark),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Editar Producto',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textDark,
-            fontFamily: 'Noto Serif',
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          TextButton(
-            onPressed: _isSaving ? null : _onSave,
-            child: Text(
-              'Guardar',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: _isSaving ? AppTheme.textLight : AppTheme.primary,
+    return Consumer<ProductProvider>(
+      builder: (context, provider, _) {
+        if (widget.isEditing) {
+          if (provider.isLoadingDetail) {
+            return Scaffold(
+              backgroundColor: AppTheme.neutral,
+              appBar: _buildAppBar(),
+              body: const Center(
+                child: CircularProgressIndicator(color: AppTheme.primaryDark),
               ),
+            );
+          }
+          final p = provider.selectedProducto;
+          if (p == null) {
+            return Scaffold(
+              backgroundColor: AppTheme.neutral,
+              appBar: _buildAppBar(),
+              body: Center(
+                child: Text(
+                  'Producto no encontrado',
+                  style: TextStyle(color: AppTheme.textMedium),
+                ),
+              ),
+            );
+          }
+          _initFromProducto(p);
+        }
+
+        return Scaffold(
+          backgroundColor: AppTheme.neutral,
+          appBar: _buildAppBar(),
+          body: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    child: _buildFields(provider.categorias),
+                  ),
+                ),
+                _buildSaveButton(),
+              ],
             ),
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  AppBar _buildAppBar() {
+    return AppBar(
+      backgroundColor: AppTheme.neutral,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.close, color: AppTheme.textDark),
+        onPressed: () => Navigator.pop(context),
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ImageSection(imagenUrl: widget.producto.imagenUrl),
-              const SizedBox(height: 28),
+      title: Text(
+        widget.isEditing ? 'Editar Producto' : 'Nuevo Producto',
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.textDark,
+          fontFamily: 'Noto Serif',
+        ),
+      ),
+      centerTitle: true,
+    );
+  }
 
-              _SectionHeader('Información General'),
-              const SizedBox(height: 16),
+  Widget _buildFields(List<CategoriaItem> categorias) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('Información General'),
+        const SizedBox(height: 16),
 
-              _FieldLabel('NOMBRE DEL PRODUCTO'),
-              const SizedBox(height: 6),
-              _buildTextField(
-                controller: _nombreCtrl,
-                hint: 'Nombre del producto',
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Campo requerido' : null,
-              ),
-              const SizedBox(height: 16),
+        _buildFieldLabel('NOMBRE DEL PRODUCTO'),
+        const SizedBox(height: 6),
+        _buildTextField(
+          controller: _nombreCtrl,
+          hint: 'Ej. Laptop Dell XPS 13',
+          validator: (v) =>
+              (v == null || v.trim().isEmpty) ? 'Campo requerido' : null,
+        ),
+        const SizedBox(height: 16),
 
-              _FieldLabel('SKU'),
-              const SizedBox(height: 6),
-              _buildTextField(
-                controller: _skuCtrl,
-                hint: 'Identificador SKU',
-              ),
-              const SizedBox(height: 16),
+        _buildFieldLabel('SKU'),
+        const SizedBox(height: 6),
+        _buildTextField(
+          controller: _skuCtrl,
+          hint: 'Ej. LAP-DELL-001',
+          validator: (v) =>
+              (v == null || v.trim().isEmpty) ? 'Campo requerido' : null,
+        ),
+        const SizedBox(height: 16),
 
-              _FieldLabel('CATEGORÍA'),
-              const SizedBox(height: 6),
-              Consumer<ProductProvider>(
-                builder: (_, provider, __) {
-                  final categorias = provider.categorias;
-                  return _buildDropdown(categorias);
-                },
-              ),
-              const SizedBox(height: 16),
+        _buildFieldLabel('DESCRIPCIÓN'),
+        const SizedBox(height: 6),
+        _buildTextField(
+          controller: _descripcionCtrl,
+          hint: 'Descripción opcional del producto',
+          maxLines: 3,
+        ),
+        const SizedBox(height: 16),
 
-              _FieldLabel('PROVEEDOR'),
-              const SizedBox(height: 6),
-              _buildTextField(
-                controller: TextEditingController(
-                    text: widget.producto.proveedorNombre ?? '—'),
-                hint: 'Proveedor',
-                enabled: false,
-              ),
+        _buildFieldLabel('CATEGORÍA'),
+        const SizedBox(height: 6),
+        _buildCategoriaDropdown(categorias),
 
-              const SizedBox(height: 28),
-              _SectionHeader('Inventario y Logística'),
-              const SizedBox(height: 16),
+        const SizedBox(height: 28),
+        _buildSectionHeader('Precio y Unidad'),
+        const SizedBox(height: 16),
 
-              _FieldLabel('STOCK ACTUAL'),
-              const SizedBox(height: 6),
-              _buildTextField(
-                controller: _stockCtrl,
-                hint: '0',
-                keyboardType: TextInputType.number,
-                suffix: 'UNIDADES',
-              ),
-              const SizedBox(height: 16),
+        _buildFieldLabel('PRECIO UNITARIO'),
+        const SizedBox(height: 6),
+        _buildTextField(
+          controller: _precioCtrl,
+          hint: '0.00',
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))
+          ],
+          prefix: '\$',
+        ),
+        const SizedBox(height: 16),
 
-              _FieldLabel('PRECIO UNITARIO'),
-              const SizedBox(height: 6),
-              _buildTextField(
-                controller: _precioCtrl,
-                hint: '0.00',
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                prefix: '\$',
-              ),
-              const SizedBox(height: 16),
+        _buildFieldLabel('UNIDAD DE MEDIDA'),
+        const SizedBox(height: 6),
+        _buildUnidadDropdown(),
 
-              _FieldLabel('UBICACIÓN EN ALMACÉN'),
-              const SizedBox(height: 6),
-              _buildTextField(
-                controller: _ubicacionCtrl,
-                hint: 'Ej. Pasillo A-4, Estante 2',
-                prefixIcon: Icons.location_on_outlined,
-              ),
+        const SizedBox(height: 28),
+        _buildSectionHeader('Inventario y Logística'),
+        const SizedBox(height: 16),
 
-              if (widget.producto.movimientosRecientes.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                _LastMovementInfo(
-                  ultimaFecha: widget.producto.movimientosRecientes.first
-                      .fechaMovimiento,
-                ),
-              ],
-
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isSaving ? null : _onSave,
-                  icon: _isSaving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.update_rounded),
-                  label: Text(
-                    _isSaving ? 'Guardando...' : 'Actualizar Registro',
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w700),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFieldLabel('STOCK MÍNIMO'),
+                  const SizedBox(height: 6),
+                  _buildTextField(
+                    controller: _stockMinCtrl,
+                    hint: '0',
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryDark,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                        AppTheme.primaryDark.withValues(alpha: 0.5),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.radiusFull),
-                    ),
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFieldLabel('STOCK MÁXIMO'),
+                  const SizedBox(height: 6),
+                  _buildTextField(
+                    controller: _stockMaxCtrl,
+                    hint: 'Sin límite',
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        _buildFieldLabel('UBICACIÓN EN ALMACÉN'),
+        const SizedBox(height: 6),
+        _buildTextField(
+          controller: _ubicacionCtrl,
+          hint: 'Ej. Pasillo A-4, Estante 2',
+          prefixIcon: Icons.location_on_outlined,
+        ),
+
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+      decoration: BoxDecoration(
+        color: AppTheme.neutral,
+        border: Border(top: BorderSide(color: AppTheme.divider)),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: ElevatedButton.icon(
+          onPressed: _isSaving ? null : _save,
+          icon: _isSaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : Icon(
+                  widget.isEditing ? Icons.update_rounded : Icons.check_rounded),
+          label: Text(
+            _isSaving
+                ? 'Guardando...'
+                : (widget.isEditing ? 'Actualizar Registro' : 'Guardar producto'),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryDark,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: AppTheme.primaryDark.withValues(alpha: 0.5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ─── HELPERS ──────────────────────────────────────────────────────────────
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.primaryDark,
+        fontFamily: 'Noto Serif',
+      ),
+    );
+  }
+
+  Widget _buildFieldLabel(String label) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.textLight,
+        letterSpacing: 1.0,
       ),
     );
   }
@@ -294,9 +426,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
   Widget _buildTextField({
     required TextEditingController controller,
     required String hint,
+    int maxLines = 1,
     bool enabled = true,
     TextInputType? keyboardType,
-    String? suffix,
+    List<TextInputFormatter>? inputFormatters,
     String? prefix,
     IconData? prefixIcon,
     String? Function(String?)? validator,
@@ -304,7 +437,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
     return TextFormField(
       controller: controller,
       enabled: enabled,
+      maxLines: maxLines,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       validator: validator,
       style: TextStyle(
         fontSize: 14,
@@ -318,14 +453,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
         prefixIcon: prefixIcon != null
             ? Icon(prefixIcon, color: AppTheme.textLight, size: 18)
             : null,
-        suffixText: suffix,
-        suffixStyle: TextStyle(
-          color: AppTheme.primary,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
         filled: true,
-        fillColor: enabled ? Colors.white : AppTheme.surfaceVariant.withValues(alpha: 0.3),
+        fillColor:
+            enabled ? Colors.white : AppTheme.surfaceVariant.withValues(alpha: 0.3),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           borderSide: BorderSide(color: AppTheme.divider),
@@ -342,13 +472,17 @@ class _EditProductScreenState extends State<EditProductScreen> {
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           borderSide: BorderSide(color: AppTheme.error),
         ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          borderSide: BorderSide(color: AppTheme.error, width: 1.5),
+        ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }
 
-  Widget _buildDropdown(List<CategoriaItem> categorias) {
+  Widget _buildCategoriaDropdown(List<CategoriaItem> categorias) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -363,8 +497,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
           style: TextStyle(fontSize: 14, color: AppTheme.textDark),
           hint: Text('Sin categoría',
               style: TextStyle(color: AppTheme.textLight, fontSize: 14)),
-          icon: Icon(Icons.keyboard_arrow_down_rounded,
-              color: AppTheme.textMedium),
+          icon:
+              Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.textMedium),
           items: [
             DropdownMenuItem<int?>(
               value: null,
@@ -383,139 +517,27 @@ class _EditProductScreenState extends State<EditProductScreen> {
       ),
     );
   }
-}
 
-class _ImageSection extends StatelessWidget {
-  final String? imagenUrl;
-
-  const _ImageSection({this.imagenUrl});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-                child: imagenUrl != null
-                    ? Image.network(
-                        imagenUrl!,
-                        width: 120,
-                        height: 120,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _placeholder(),
-                      )
-                    : _placeholder(),
-              ),
-              Positioned(
-                bottom: 4,
-                right: 4,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: const Icon(Icons.camera_alt_outlined,
-                      color: Colors.white, size: 16),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'IMAGEN DEL PRODUCTO',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textLight,
-              letterSpacing: 1.0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _placeholder() {
+  Widget _buildUnidadDropdown() {
     return Container(
-      width: 120,
-      height: 120,
-      color: AppTheme.surfaceVariant.withValues(alpha: 0.4),
-      child: Icon(Icons.inventory_2_outlined,
-          color: AppTheme.textLight, size: 40),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader(this.title);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: AppTheme.primaryDark,
-        fontFamily: 'Noto Serif',
-      ),
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  final String label;
-  const _FieldLabel(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.textLight,
-        letterSpacing: 1.0,
-      ),
-    );
-  }
-}
-
-class _LastMovementInfo extends StatelessWidget {
-  final String? ultimaFecha;
-  const _LastMovementInfo({this.ultimaFecha});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppTheme.primary.withValues(alpha: 0.08),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(
-            color: AppTheme.primary.withValues(alpha: 0.3)),
+        border: Border.all(color: AppTheme.divider),
       ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline, color: AppTheme.primary, size: 16),
-          const SizedBox(width: 8),
-          Text(
-            'ÚLTIMO MOVIMIENTO: ${ultimaFecha ?? "—"}',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.primary,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _unidadMedida,
+          isExpanded: true,
+          style: TextStyle(fontSize: 14, color: AppTheme.textDark),
+          icon:
+              Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.textMedium),
+          items: _unidades
+              .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+              .toList(),
+          onChanged: (v) => setState(() => _unidadMedida = v!),
+        ),
       ),
     );
   }

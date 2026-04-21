@@ -7,6 +7,7 @@ from ..models.schemas import (
     CatalogoPaginado,
     ProductoDetalle,
     ProductoUpdate,
+    ProductoCatalogCreate,
     CategoriasList,
 )
 
@@ -28,6 +29,38 @@ def _get_empresa_id(token_payload: dict) -> int:
     if not empresa_id:
         raise HTTPException(status_code=400, detail="empresa_id no encontrado en token")
     return empresa_id
+
+
+@router.post("/")
+def create_producto(
+    body: ProductoCatalogCreate,
+    token_payload: dict = Depends(get_current_user_token),
+):
+    empresa_id = _get_empresa_id(token_payload)
+    usuario_id = token_payload.get("id")
+    data = _call_sp(
+        "public.write_productos",
+        "register",
+        empresa_id,
+        None,
+        body.nombre,
+        body.sku,
+        body.descripcion,
+        body.precio_unitario,
+        body.categoria_id,
+        None,
+        body.unidad_medida,
+        body.stock_minimo,
+        body.stock_maximo,
+        body.imagen_url,
+        None,
+        body.ubicacion_fisica,
+        None,
+        usuario_id,
+    )
+    if "error" in data:
+        raise HTTPException(status_code=400, detail=data["error"])
+    return data
 
 
 @router.get("/categorias", response_model=CategoriasList)
