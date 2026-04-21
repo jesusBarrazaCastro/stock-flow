@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stock_flow/app_theme.dart';
+import 'catalog_screen.dart';
 
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
@@ -37,11 +38,18 @@ class _StockScreenState extends State<StockScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildActionCard(
-                      icon: Icons.category_outlined,
-                      title: 'Catálogo de\nProductos',
-                      subtitle: 'ORGANIZAR',
-                      color: AppTheme.secondaryLight,
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const CatalogScreen()),
+                      ),
+                      child: _buildActionCard(
+                        icon: Icons.category_outlined,
+                        title: 'Catálogo de\nProductos',
+                        subtitle: 'ORGANIZAR',
+                        color: AppTheme.secondaryLight,
+                      ),
                     ),
                   ),
                 ],

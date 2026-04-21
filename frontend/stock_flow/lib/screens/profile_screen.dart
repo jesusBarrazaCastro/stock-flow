@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import 'package:stock_flow/app_theme.dart';
 import 'company_settings_screen.dart';
 import 'company_details_screen.dart';
@@ -16,9 +16,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
-  String _userName = 'Cargando...';
-  String _email = '...';
-  bool _isAdmin = true; // Para pruebas
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
 
@@ -30,7 +27,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     _fadeAnimation = CurvedAnimation(
         parent: _animController, curve: Curves.easeOut);
     _animController.forward();
-    _loadUser();
   }
 
   @override
@@ -39,25 +35,20 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.dispose();
   }
 
-  Future<void> _loadUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    final user = Supabase.instance.client.auth.currentUser;
-    setState(() {
-      _userName = prefs.getString('user_name') ?? 'Usuario de Stock Flow';
-      _email = user?.email ?? 'usuario@ejemplo.com';
-      // _isAdmin = ... tu logica real
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final userName = authProvider.currentUser?['nombre'] ?? 'Usuario de Stock Flow';
+    final email = authProvider.currentUser?['email'] ?? '';
+    final isAdmin = authProvider.isAdmin;
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingMd, vertical: AppTheme.spacingLg),
         children: [
-          _buildProfileCard(),
+          _buildProfileCard(userName: userName, email: email, isAdmin: isAdmin),
           const SizedBox(height: AppTheme.spacingLg),
 
           _buildSectionTitle('Ajustes de Perfil'),
@@ -90,11 +81,11 @@ class _ProfileScreenState extends State<ProfileScreen>
           const SizedBox(height: AppTheme.spacingXl),
 
           _buildSectionTitle('Empresa'),
-          
+
           _buildSettingTile(
             icon: Icons.business_outlined,
-            title: 'Tech Logistics S.A.',
-            subtitle: 'Ver detalles de la empresa a la que perteneces',
+            title: 'Datos de la Empresa',
+            subtitle: 'Ver${isAdmin ? ' y editar' : ''} información de tu empresa',
             onTap: () {
               Navigator.push(
                 context,
@@ -108,7 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           AnimatedSize(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-            child: _isAdmin 
+            child: isAdmin
                 ? _buildSettingTile(
                     icon: Icons.admin_panel_settings_outlined,
                     title: 'Configuración Avanzada',
@@ -147,9 +138,12 @@ class _ProfileScreenState extends State<ProfileScreen>
           ElevatedButton.icon(
             onPressed: () async {
               try {
-                await Supabase.instance.client.auth.signOut();
-                if (context.mounted) {
-                  context.go('/');
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                await authProvider.logout();
+                // Al cambiar el estado, MainApp renderiza Login.
+                // GoRouter fallback:
+                if (context.mounted && GoRouter.of(context).routerDelegate.currentConfiguration.isNotEmpty) {
+                    context.go('/');
                 }
               } catch (e) {
                 if (context.mounted) {
@@ -175,7 +169,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildProfileCard() {
+  Widget _buildProfileCard({required String userName, required String email, required bool isAdmin}) {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -228,7 +222,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _userName,
+                        userName,
                         style: const TextStyle(
                           color: AppTheme.textOnPrimary,
                           fontSize: 20,
@@ -239,7 +233,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _email,
+                        email,
                         style: TextStyle(
                           color: AppTheme.textOnPrimary.withOpacity(0.8),
                           fontSize: 14,
@@ -255,7 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          _isAdmin ? 'Administrador' : 'Empleado',
+                          isAdmin ? 'Administrador' : 'Empleado',
                           style: const TextStyle(
                             color: AppTheme.textOnPrimary,
                             fontSize: 11,

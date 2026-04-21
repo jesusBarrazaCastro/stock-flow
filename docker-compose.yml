@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   # Servicio del Backend (FastAPI para Stock Flow)
@@ -10,13 +9,8 @@ services:
     restart: always
     ports:
       - "8000:8000"
-    environment:
-      # Las variables apuntan a la base de datos externa pasadas por entorno o por defecto locales
-      DB_HOST: ${DB_HOST:-localhost}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_NAME: ${DB_NAME:-stockflow_db}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+    env_file:
+      - ./backend/.env
     networks:
       - proyecto-net
     volumes:

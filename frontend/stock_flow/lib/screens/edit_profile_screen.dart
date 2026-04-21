@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:stock_flow/app_theme.dart';
+import '../providers/auth_provider.dart';
+import '../services/settings_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -10,9 +13,19 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(text: 'Usuario de Stock Flow');
-  final _phoneController = TextEditingController(text: '+52 55 1234 5678');
-  final _emailController = TextEditingController(text: 'usuario@ejemplo.com');
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = context.read<AuthProvider>().currentUser;
+    _nameController.text = user?['nombre'] ?? '';
+    _phoneController.text = user?['telefono'] ?? '';
+    _emailController.text = user?['email'] ?? '';
+  }
 
   @override
   void dispose() {
@@ -22,29 +35,50 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  void _saveProfile() {
-    if (_formKey.currentState!.validate()) {
-      FocusScope.of(context).unfocus(); // Ocultar teclado
-      
-      // Simular guardado y mostrar feedback
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+
+    setState(() => _isSaving = true);
+
+    final error = await SettingsService().updatePerfil(
+      _nameController.text.trim(),
+      _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+    );
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+
+    if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: AppTheme.spacingSm),
-              Text('Perfil actualizado correctamente'),
-            ],
-          ),
-          backgroundColor: AppTheme.success,
+          content: Text(error),
+          backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
         ),
       );
-      Navigator.pop(context);
+      return;
     }
+
+    await context.read<AuthProvider>().checkAuthStatus();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: AppTheme.spacingSm),
+            Text('Perfil actualizado correctamente'),
+          ],
+        ),
+        backgroundColor: AppTheme.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+      ),
+    );
+    Navigator.pop(context);
   }
 
   @override
@@ -132,15 +166,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _saveProfile,
+                    onPressed: _isSaving ? null : _saveProfile,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    child: const Text('Guardar Cambios'),
+                    child: _isSaving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Guardar Cambios'),
                   ),
                 ),
                 const SizedBox(height: AppTheme.spacingXl),

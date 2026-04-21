@@ -31,7 +31,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Usamos /app/app porque ahí es donde la aplicación FastAPI realmente reside (app/main.py).
 COPY ./app /app/app
 # Si tienes datos del modelo (weights, checkpoints, etc.), copia también:
-COPY ./model_data /app/model_data
+# COPY ./model_data /app/model_data
 
 # 6. EXPOSICIÓN Y ARRANQUE
 # Puerto que usará el servidor uvicorn (FastAPI).

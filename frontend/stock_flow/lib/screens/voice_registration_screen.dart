@@ -101,6 +101,7 @@ class _VoiceRegistrationScreenState extends State<VoiceRegistrationScreen> with 
       onSoundLevelChange: (level) => setState(() {
         _level = level;
       }),
+      localeId: 'es_MX',
     );
     setState(() => _isListening = true);
   }

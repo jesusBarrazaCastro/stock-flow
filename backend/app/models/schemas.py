@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Any
 from datetime import datetime
 
 class UsuarioBase(BaseModel):
@@ -29,6 +29,30 @@ class Producto(ProductoBase):
     usuario_id: int
     created_at: Optional[datetime] = None
 
+class PerfilUpdate(BaseModel):
+    nombre_completo: str
+    telefono: Optional[str] = None
+
+class EmpresaResponse(BaseModel):
+    id: int
+    razon_social: str
+    nombre_comercial: Optional[str] = None
+    rfc: Optional[str] = None
+    correo_electronico: Optional[str] = None
+    telefono_principal: Optional[str] = None
+    direccion_fiscal: Optional[str] = None
+    plan_suscripcion: str
+    limite_almacenes: Optional[int] = None
+    fecha_registro: Optional[str] = None
+
+class EmpresaUpdate(BaseModel):
+    razon_social: str
+    nombre_comercial: Optional[str] = None
+    rfc: Optional[str] = None
+    correo_electronico: Optional[str] = None
+    telefono_principal: Optional[str] = None
+    direccion_fiscal: Optional[str] = None
+
 class MovimientoBase(BaseModel):
     tipo: Literal['entrada', 'salida']
     cantidad: float
@@ -44,3 +68,72 @@ class Movimiento(MovimientoBase):
     id: int
     producto_id: int
     created_at: Optional[datetime] = None
+
+
+# ── Catálogo schemas ──────────────────────────────────────────────────────
+
+class MovimientoReciente(BaseModel):
+    id: int
+    tipo_movimiento: str
+    cantidad: int
+    precio_unitario: Optional[float] = None
+    fecha_movimiento: Optional[str] = None
+    notas: Optional[str] = None
+    metodo_registro: str = 'MANUAL'
+    almacen_nombre: Optional[str] = None
+    usuario_nombre: Optional[str] = None
+
+class CatalogoProductoItem(BaseModel):
+    id: int
+    nombre: str
+    sku: str
+    descripcion: Optional[str] = None
+    precio_unitario: float = 0.0
+    imagen_url: Optional[str] = None
+    unidad_medida: str = 'unidad'
+    stock_minimo: int = 0
+    stock_maximo: Optional[int] = None
+    registro_fecha: Optional[Any] = None
+    categoria_id: Optional[int] = None
+    categoria_nombre: Optional[str] = None
+    categoria_color: Optional[str] = None
+    proveedor_id: Optional[int] = None
+    proveedor_nombre: Optional[str] = None
+    stock_total: int = 0
+    estado_stock: str = 'AGOTADO'
+
+class CatalogoPaginado(BaseModel):
+    items: List[CatalogoProductoItem]
+    total: int
+    page: int
+    limit: int
+    pages: float
+
+class ProductoDetalle(CatalogoProductoItem):
+    ubicacion_fisica: Optional[str] = None
+    almacen_id: Optional[int] = None
+    almacen_nombre: Optional[str] = None
+    movimientos_recientes: List[MovimientoReciente] = []
+
+class ProductoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    sku: Optional[str] = None
+    descripcion: Optional[str] = None
+    precio_unitario: Optional[float] = None
+    categoria_id: Optional[int] = None
+    proveedor_id: Optional[int] = None
+    unidad_medida: Optional[str] = None
+    stock_minimo: Optional[int] = None
+    stock_maximo: Optional[int] = None
+    imagen_url: Optional[str] = None
+    almacen_id: Optional[int] = None
+    ubicacion_fisica: Optional[str] = None
+    cantidad_nueva: Optional[int] = None
+
+class CategoriaItem(BaseModel):
+    id: int
+    nombre: str
+    color_hex: Optional[str] = None
+
+class CategoriasList(BaseModel):
+    items: List[CategoriaItem]

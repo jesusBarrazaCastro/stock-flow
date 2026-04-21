@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import productos, movimientos, vision, asistente
+from .api import productos, movimientos, vision, asistente, auth, settings
 
 app = FastAPI(title="Stock Flow Backend")
 
@@ -12,10 +12,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/api")
 app.include_router(productos.router, prefix="/api")
 app.include_router(movimientos.router, prefix="/api")
 app.include_router(vision.router, prefix="/api")
 app.include_router(asistente.router, prefix="/api")
+app.include_router(settings.router, prefix="/api")
 
 @app.get("/health")
 def health_check():
