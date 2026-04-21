@@ -165,3 +165,23 @@ New SP files go in `database_scripts/` and must be applied to the DB before depl
 Key views: `v_stock_productos` (stock status per product), `v_dashboard_kpis`, `v_actividad_reciente`.
 
 All tables have audit columns: `registro_fecha`, `registro_estado`, `registro_usuario`.
+
+---
+
+## Flutter UI Conventions
+
+### Mensajes al usuario — `MsgtUtil`
+
+**Siempre usa `MsgtUtil`** para mostrar mensajes al usuario. Nunca uses `ScaffoldMessenger.showSnackBar()` directamente.
+
+Ubicación: `frontend/stock_flow/lib/utilities/msg_util.dart`
+
+```dart
+import '../utilities/msg_util.dart';
+
+MsgtUtil.showError(context, 'Mensaje de error');    // rojo, 4 s
+MsgtUtil.showSuccess(context, 'Operación exitosa'); // verde, 2 s
+MsgtUtil.showWarning(context, 'Advertencia');       // naranja, 3 s
+```
+
+Usa `another_flushbar` para mostrar toasts en la parte inferior de la pantalla.

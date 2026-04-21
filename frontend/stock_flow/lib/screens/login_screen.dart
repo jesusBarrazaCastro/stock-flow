@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../utilities/msg_util.dart';
 
 const _bg = Color(0xFFFAF0EC);
 const _card = Color(0xFFFFFFFF);
@@ -66,15 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
     if (!mounted) return;
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error, style: GoogleFonts.manrope()),
-          backgroundColor: const Color(0xFFCF4040),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+      MsgtUtil.showError(context, error);
     }
     // On success the root Consumer in main.dart rebuilds and shows MainNavigation.
   }
@@ -87,15 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: _bg,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content:
-                  Text('Soporte próximamente', style: GoogleFonts.manrope()),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-          );
+          MsgtUtil.showWarning(context, 'Soporte próximamente');
         },
         backgroundColor: _accent,
         mini: true,
@@ -206,16 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                      'Recuperación de contraseña próximamente',
-                                      style: GoogleFonts.manrope()),
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10)),
-                                ),
-                              );
+                              MsgtUtil.showWarning(context, 'Recuperación de contraseña próximamente');
                             },
                             child: Text(
                               '¿OLVIDASTE LA CLAVE?',

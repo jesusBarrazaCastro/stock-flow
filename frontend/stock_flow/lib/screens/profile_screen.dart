@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'package:stock_flow/app_theme.dart';
@@ -137,21 +136,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 
           ElevatedButton.icon(
             onPressed: () async {
-              try {
-                final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                await authProvider.logout();
-                // Al cambiar el estado, MainApp renderiza Login.
-                // GoRouter fallback:
-                if (context.mounted && GoRouter.of(context).routerDelegate.currentConfiguration.isNotEmpty) {
-                    context.go('/');
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Error al cerrar sesión')),
-                  );
-                }
-              }
+              await Provider.of<AuthProvider>(context, listen: false).logout();
+              // El Consumer en main.dart detecta isAuthenticated=false y navega a LoginScreen.
             },
             icon: const Icon(Icons.logout),
             label: const Text('Cerrar Sesión'),

@@ -16,7 +16,7 @@ BEGIN
     -- ── LOGIN ────────────────────────────────────────────────
     IF p_ac = 'login' THEN
 
-        SELECT id, nombre_completo, email, password_hash
+        SELECT id, nombre_completo, email, password_hash, empresa_id
         INTO v_user
         FROM usuarios
         WHERE email = p_email
@@ -30,7 +30,8 @@ BEGIN
             'id',            v_user.id,
             'nombre',        v_user.nombre_completo,
             'email',         v_user.email,
-            'password_hash', v_user.password_hash
+            'password_hash', v_user.password_hash,
+            'empresa_id',    v_user.empresa_id
         );
 
     -- ── ME ───────────────────────────────────────────────────
