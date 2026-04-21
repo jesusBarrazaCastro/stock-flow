@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:stock_flow/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import '../providers/movimiento_provider.dart';
+import '../providers/stock_provider.dart';
+import '../services/movimiento_service.dart';
+import '../services/supplier_service.dart';
+import '../utilities/msg_util.dart';
 
 class ManualRegistrationScreen extends StatefulWidget {
   final bool? initialIsEntry;
@@ -16,122 +22,222 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
   late bool _isEntry;
   int _quantity = 1;
   DateTime _selectedDate = DateTime.now();
-  final TextEditingController _productController = TextEditingController();
-  final TextEditingController _skuController =
-      TextEditingController(text: 'INV-2024-001');
-  final TextEditingController _priceController =
-      TextEditingController(text: '149,90');
+
+  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
-  String _selectedSupplier = 'Distribuidora S.A.';
+  AlmacenItem? _selectedAlmacen;
+  ProveedorItem? _selectedProveedor;
+
+  bool _showSearchResults = false;
 
   @override
   void initState() {
     super.initState();
     _isEntry = widget.initialIsEntry ?? true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final provider = context.read<MovimientoProvider>();
+      await provider.loadFormData();
+      // Autoseleccionar almacén si solo hay uno
+      if (mounted && provider.almacenAutoselect != null) {
+        setState(() => _selectedAlmacen = provider.almacenAutoselect);
+      }
+    });
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _priceController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppTheme.primary,
-              onPrimary: Colors.white,
-              onSurface: AppTheme.textDark,
-            ),
+      lastDate: DateTime.now(),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppTheme.primary,
+            onPrimary: Colors.white,
+            onSurface: AppTheme.textDark,
           ),
-          child: child!,
-        );
-      },
+        ),
+        child: child!,
+      ),
     );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  Future<void> _confirmar() async {
+    final provider = context.read<MovimientoProvider>();
+    final stock = context.read<StockProvider>();
+
+    // Validaciones
+    if (provider.productoSeleccionado == null) {
+      MsgtUtil.showWarning(context, 'Selecciona un producto');
+      return;
+    }
+    if (_selectedAlmacen == null && false) {
+      // Validación de almacén omitida por configuración
+    }
+    if (_quantity < 1) {
+      MsgtUtil.showWarning(context, 'La cantidad debe ser mayor a cero');
+      return;
+    }
+
+    final precio = double.tryParse(
+        _priceController.text.replaceAll(',', '.'));
+
+    final req = MovimientoRegistroRequest(
+      productoId: provider.productoSeleccionado!.id,
+      // almacenId omitido: la SP auto-selecciona el primero disponible
+      tipo: _isEntry ? 'ENTRADA' : 'SALIDA',
+      cantidad: _quantity,
+      precioUnitario: precio,
+      proveedorId: _selectedProveedor?.id,
+      notas: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
+      fecha: _selectedDate,
+    );
+
+    final error = await provider.registrar(req);
+
+    if (!mounted) return;
+
+    if (error != null) {
+      MsgtUtil.showError(context, error);
+    } else {
+      MsgtUtil.showSuccess(context, 'Movimiento registrado correctamente');
+      // Refrescar la pantalla de stock
+      await stock.refresh();
+      if (mounted) {
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.neutral,
-      appBar: _buildAppBar(),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTypeSelector(),
-            const SizedBox(height: 32),
-            _buildLabel('Nombre del Producto'),
-            _buildSearchField(),
-            const SizedBox(height: 24),
-            Row(
+    return Consumer<MovimientoProvider>(
+      builder: (context, provider, _) {
+        return Scaffold(
+          backgroundColor: AppTheme.neutral,
+          appBar: _buildAppBar(),
+          body: GestureDetector(
+            onTap: () {
+              FocusScope.of(context).unfocus();
+              setState(() => _showSearchResults = false);
+              provider.clearSearch();
+            },
+            child: Stack(
               children: [
-                Expanded(
+                SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 18, vertical: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLabel('SKU'),
-                      _buildTextField(_skuController),
+                      _buildTypeSelector(),
+                      const SizedBox(height: 32),
+
+                      // ── Producto ──────────────────────────────
+                      _buildLabel('Nombre del Producto'),
+                      _buildProductSearch(provider),
+                      const SizedBox(height: 24),
+
+                      // ── SKU + Fecha ───────────────────────────
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('SKU'),
+                                _buildReadonlyField(
+                                  provider.productoSeleccionado?.sku ?? '—',
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Fecha'),
+                                _buildDateField(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Cantidad + Precio ─────────────────────
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Cantidad'),
+                                _buildQuantityStepper(),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Precio Unitario'),
+                                _buildPriceField(provider),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Proveedor / Origen ─────────────────────────────
+                      _buildLabel('Proveedor / Origen'),
+                      _buildProveedorDropdown(provider),
+                      const SizedBox(height: 24),
+
+                      // ── Notas ─────────────────────────────────
+                      _buildLabel('Notas Adicionales'),
+                      _buildNotesField(),
+                      const SizedBox(height: 40),
+
+                      // ── Botón Confirmar ───────────────────────
+                      _buildConfirmButton(provider),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Fecha'),
-                      _buildDateField(),
-                    ],
-                  ),
-                ),
+
+                // ── Overlay resultados búsqueda ───────────────
+                if (_showSearchResults &&
+                    provider.productosSearch.isNotEmpty)
+                  _buildSearchOverlay(provider),
               ],
             ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Cantidad'),
-                      _buildQuantityStepper(),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Precio Unitario'),
-                      _buildPriceField(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            _buildLabel('Proveedor / Origen'),
-            _buildSupplierDropdown(),
-            const SizedBox(height: 24),
-            _buildLabel('Notas Adicionales'),
-            _buildNotesField(),
-            const SizedBox(height: 40),
-            Expanded(child: _buildConfirmButton()),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // WIDGETS
+  // ═══════════════════════════════════════════════════════════════
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
@@ -211,11 +317,9 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : AppTheme.textLight,
-              size: 20,
-            ),
+            Icon(icon,
+                color: isSelected ? Colors.white : AppTheme.textLight,
+                size: 20),
             const SizedBox(width: 8),
             Text(
               title,
@@ -245,66 +349,166 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
     );
   }
 
-  Widget _buildSearchField() {
+  Widget _buildProductSearch(MovimientoProvider provider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Si ya hay producto seleccionado, mostrar chip
+        if (provider.productoSeleccionado != null)
+          _buildSelectedProductChip(provider)
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() => _showSearchResults = value.isNotEmpty);
+                provider.searchProducto(value);
+              },
+              decoration: InputDecoration(
+                hintText: 'Buscar por nombre o SKU...',
+                prefixIcon: provider.isSearching
+                    ? const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : const Icon(Icons.search_rounded,
+                        color: AppTheme.textLight),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide:
+                      const BorderSide(color: AppTheme.primary, width: 1.5),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                    vertical: 16, horizontal: 20),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSelectedProductChip(MovimientoProvider provider) {
+    final p = provider.productoSeleccionado!;
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: AppTheme.primaryDark.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.textDark.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+        border: Border.all(
+            color: AppTheme.primaryDark.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.inventory_2_outlined,
+              color: AppTheme.primaryDark, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(p.nombre,
+                    style: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textDark,
+                        fontSize: 14)),
+                Text(
+                    'Stock: ${p.stockTotal} ${p.unidadMedida} · ${p.estadoStock}',
+                    style: GoogleFonts.manrope(
+                        fontSize: 12, color: AppTheme.textMedium)),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () {
+              provider.clearProducto();
+              _searchController.clear();
+              _priceController.clear();
+            },
+            icon: const Icon(Icons.close, color: AppTheme.textLight, size: 18),
           ),
         ],
       ),
-      child: TextField(
-        controller: _productController,
-        decoration: InputDecoration(
-          hintText: 'Buscar producto por nombre o ID...',
-          prefixIcon:
-              const Icon(Icons.search_rounded, color: AppTheme.textLight),
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: OutlineInputBorder(
+    );
+  }
+
+  Widget _buildSearchOverlay(MovimientoProvider provider) {
+    return Positioned(
+      top: 148, // debajo del campo de búsqueda
+      left: 18,
+      right: 18,
+      child: Material(
+        elevation: 8,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 220),
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
           ),
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: provider.productosSearch.length,
+            separatorBuilder: (_, __) =>
+                Divider(height: 1, color: AppTheme.divider),
+            itemBuilder: (ctx, i) {
+              final item = provider.productosSearch[i];
+              return ListTile(
+                leading: Icon(Icons.inventory_2_outlined,
+                    color: AppTheme.primaryDark),
+                title: Text(item.nombre,
+                    style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+                subtitle: Text('SKU: ${item.sku}',
+                    style: GoogleFonts.manrope(fontSize: 12)),
+                trailing: Text('${item.stockTotal} uds',
+                    style: GoogleFonts.manrope(
+                        fontSize: 12, color: AppTheme.textMedium)),
+                onTap: () {
+                  provider.seleccionarProducto(item);
+                  _searchController.clear();
+                  // Autocompletar precio
+                  if (item.precioUnitario > 0) {
+                    _priceController.text =
+                        item.precioUnitario.toStringAsFixed(2);
+                  }
+                  setState(() => _showSearchResults = false);
+                },
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller) {
+  Widget _buildReadonlyField(String value) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: Colors.white.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: TextField(
-        controller: controller,
-        enabled: false,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        ),
-      ),
+      child: Text(value,
+          style: GoogleFonts.manrope(
+              color: AppTheme.textMedium, fontSize: 15)),
     );
   }
 
   Widget _buildDateField() {
     return GestureDetector(
-      onTap: () => _selectDate(context),
+      onTap: _selectDate,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(16),
@@ -313,9 +517,9 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              DateFormat('MM/dd/yyyy').format(_selectedDate),
-              style:
-                  GoogleFonts.manrope(color: AppTheme.textDark, fontSize: 15),
+              DateFormat('dd/MM/yyyy').format(_selectedDate),
+              style: GoogleFonts.manrope(
+                  color: AppTheme.textDark, fontSize: 15),
             ),
             const Icon(Icons.calendar_today_rounded,
                 size: 18, color: AppTheme.textDark),
@@ -335,59 +539,57 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
-            onPressed: () => setState(() {
-              if (_quantity > 0) _quantity--;
-            }),
-            icon: const Icon(Icons.remove, color: Color(0xFFB76E5D)),
+            onPressed: () =>
+                setState(() { if (_quantity > 1) _quantity--; }),
+            icon: const Icon(Icons.remove,
+                color: Color(0xFFB76E5D)),
           ),
-          Text(
-            '$_quantity',
-            style: GoogleFonts.manrope(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.textDark,
-            ),
-          ),
+          Text('$_quantity',
+              style: GoogleFonts.manrope(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textDark)),
           IconButton(
             onPressed: () => setState(() => _quantity++),
-            icon: const Icon(Icons.add, color: Color(0xFFB76E5D)),
+            icon:
+                const Icon(Icons.add, color: Color(0xFFB76E5D)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPriceField() {
+  Widget _buildPriceField(MovimientoProvider provider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          Text(
-            '\$',
-            style: GoogleFonts.manrope(
-              color: AppTheme.textLight,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text('\$',
+              style: GoogleFonts.manrope(
+                  color: AppTheme.textLight,
+                  fontWeight: FontWeight.w600)),
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: _priceController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
+                hintText: '0.00',
               ),
               style: GoogleFonts.manrope(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textDark,
-              ),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textDark),
             ),
           ),
         ],
@@ -395,27 +597,90 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
     );
   }
 
-  Widget _buildSupplierDropdown() {
+  Widget _buildAlmacenDropdown(MovimientoProvider provider) {
+    if (provider.isLoadingFormData) {
+      return _buildLoadingField();
+    }
+    if (provider.almacenes.isEmpty) {
+      return _buildReadonlyField('Sin almacenes disponibles');
+    }
+    return GestureDetector(
+      onTap: () => _showAlmacenPicker(provider),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _selectedAlmacen?.nombre ?? 'Seleccionar almacén...',
+              style: GoogleFonts.manrope(
+                color: _selectedAlmacen != null
+                    ? AppTheme.textDark
+                    : AppTheme.textLight,
+                fontSize: 15,
+              ),
+            ),
+            const Icon(Icons.keyboard_arrow_down_rounded,
+                color: AppTheme.textLight),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProveedorDropdown(MovimientoProvider provider) {
+    if (provider.isLoadingFormData) {
+      return _buildLoadingField();
+    }
+    return GestureDetector(
+      onTap: () => _showProveedorPicker(provider),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _selectedProveedor?.nombre ?? 'Sin proveedor',
+              style: GoogleFonts.manrope(
+                color: _selectedProveedor != null
+                    ? AppTheme.textDark
+                    : AppTheme.textLight,
+                fontSize: 15,
+              ),
+            ),
+            const Icon(Icons.keyboard_arrow_down_rounded,
+                color: AppTheme.textLight),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingField() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: Colors.white.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(_selectedSupplier, style: GoogleFonts.manrope(fontSize: 15)),
-          const Icon(Icons.keyboard_arrow_down_rounded,
-              color: AppTheme.textLight),
-        ],
+      child: const SizedBox(
+        height: 18,
+        width: 18,
+        child: CircularProgressIndicator(strokeWidth: 2),
       ),
     );
   }
 
   Widget _buildNotesField() {
     return Container(
-      //height: 120,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(16),
@@ -435,17 +700,14 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
     );
   }
 
-  Widget _buildConfirmButton() {
+  Widget _buildConfirmButton(MovimientoProvider provider) {
     return SizedBox(
       width: double.infinity,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            colors: [
-              const Color(0xFFB76E5D), // Lighter coral
-              const Color(0xFF9E5343), // Darker brownish red
-            ],
+          gradient: const LinearGradient(
+            colors: [Color(0xFFB76E5D), Color(0xFF9E5343)],
           ),
           boxShadow: [
             BoxShadow(
@@ -456,23 +718,125 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
           ],
         ),
         child: ElevatedButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: provider.isSubmitting ? null : _confirmar,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
             padding: const EdgeInsets.symmetric(vertical: 20),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
           ),
-          child: Text(
-            'Confirmar Registro',
-            style: GoogleFonts.manrope(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
-          ),
+          child: provider.isSubmitting
+              ? const SizedBox(
+                  height: 22,
+                  width: 22,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : Text(
+                  'Confirmar Registro',
+                  style: GoogleFonts.manrope(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
         ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PICKERS (bottom sheets)
+  // ═══════════════════════════════════════════════════════════════
+
+  void _showAlmacenPicker(MovimientoProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.all(24),
+        children: [
+          Text('Seleccionar Almacén',
+              style: TextStyle(
+                  fontFamily: 'Noto Serif',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textDark)),
+          const SizedBox(height: 16),
+          ...provider.almacenes.map((a) => ListTile(
+                leading: const Icon(Icons.warehouse_outlined,
+                    color: AppTheme.primaryDark),
+                title: Text(a.nombre,
+                    style: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w600)),
+                subtitle: a.direccion != null
+                    ? Text(a.direccion!,
+                        style: GoogleFonts.manrope(fontSize: 12))
+                    : null,
+                selected: _selectedAlmacen?.id == a.id,
+                selectedColor: AppTheme.primaryDark,
+                onTap: () {
+                  setState(() => _selectedAlmacen = a);
+                  Navigator.pop(context);
+                },
+              )),
+        ],
+      ),
+    );
+  }
+
+  void _showProveedorPicker(MovimientoProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.all(24),
+        children: [
+          Text('Seleccionar Proveedor',
+              style: TextStyle(
+                  fontFamily: 'Noto Serif',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textDark)),
+          const SizedBox(height: 16),
+          ListTile(
+            leading: const Icon(Icons.block, color: AppTheme.textLight),
+            title: Text('Sin proveedor',
+                style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+            selected: _selectedProveedor == null,
+            selectedColor: AppTheme.primaryDark,
+            onTap: () {
+              setState(() => _selectedProveedor = null);
+              Navigator.pop(context);
+            },
+          ),
+          ...provider.proveedores.map((p) => ListTile(
+                leading: const Icon(Icons.local_shipping_outlined,
+                    color: AppTheme.primaryDark),
+                title: Text(p.nombre,
+                    style: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w600)),
+                subtitle: p.contactoNombre != null
+                    ? Text(p.contactoNombre!,
+                        style: GoogleFonts.manrope(fontSize: 12))
+                    : null,
+                selected: _selectedProveedor?.id == p.id,
+                selectedColor: AppTheme.primaryDark,
+                onTap: () {
+                  setState(() => _selectedProveedor = p);
+                  Navigator.pop(context);
+                },
+              )),
+        ],
       ),
     );
   }

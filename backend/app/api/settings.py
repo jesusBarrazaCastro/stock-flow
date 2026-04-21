@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..services.db_service import execute_query
 from ..core.security import get_current_user_token
-from ..models.schemas import PerfilUpdate, EmpresaResponse, EmpresaUpdate
+from ..models.schemas import PerfilUpdate, EmpresaResponse, EmpresaUpdate, AlmacenesList
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -95,3 +95,15 @@ def update_empresa(
     if "error" in data:
         raise HTTPException(status_code=400, detail=data["error"])
     return {"ok": True}
+
+
+@router.get("/almacenes", response_model=AlmacenesList)
+def get_almacenes(token_payload: dict = Depends(get_current_user_token)):
+    """Retorna los almacenes activos de la empresa del usuario en sesión."""
+    empresa_id = token_payload.get("empresa_id")
+    if not empresa_id:
+        raise HTTPException(status_code=400, detail="empresa_id no encontrado en token")
+    data = _call_sp("public.read_almacenes", "list", empresa_id)
+    if "error" in data:
+        raise HTTPException(status_code=400, detail=data["error"])
+    return data

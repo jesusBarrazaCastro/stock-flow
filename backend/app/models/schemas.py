@@ -237,3 +237,34 @@ class ProveedorUpdate(BaseModel):
     calificacion: Optional[float] = None
     certificado_desde: Optional[int] = None
     notas: Optional[str] = None
+
+
+# ── Movimiento schemas ───────────────────────────────────────────────────────
+
+class MovimientoRegistrar(BaseModel):
+    producto_id: int
+    almacen_id: Optional[int] = None
+    tipo: Literal['ENTRADA', 'SALIDA']
+    cantidad: int
+    precio_unitario: Optional[float] = None
+    proveedor_id: Optional[int] = None
+    notas: Optional[str] = None
+    fecha: Optional[datetime] = None
+
+
+class MovimientoResponse(BaseModel):
+    ok: bool
+    movimiento_id: int
+    stock_nuevo: int
+
+
+class AlmacenItem(BaseModel):
+    id: int
+    nombre: str
+    direccion: Optional[str] = None
+    capacidad_maxima: Optional[int] = None
+    is_active: bool = True
+
+
+class AlmacenesList(BaseModel):
+    items: List[AlmacenItem]

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:stock_flow/app_theme.dart';
+import '../providers/stock_provider.dart';
+import '../services/stock_service.dart';
+import '../utilities/msg_util.dart';
 import 'catalog_screen.dart';
 import 'suppliers_screen.dart';
 
@@ -12,228 +16,301 @@ class StockScreen extends StatefulWidget {
 
 class _StockScreenState extends State<StockScreen> {
   int _selectedFilterIndex = 0;
-  final List<String> _chipFilters = ['Todo', 'Stock Bajo', 'Agotado', 'Nuevo'];
+
+  // Mapa chip → estado_stock (null = Todo)
+  final List<String?> _chipEstados = [null, 'STOCK_BAJO', 'AGOTADO', 'EXCESO'];
+  final List<String> _chipLabels = ['Todo', 'Stock Bajo', 'Agotado', 'Exceso'];
+
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<StockProvider>();
+      provider.loadStock();
+      provider.loadCategorias();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.neutral,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 10),
+    return Consumer<StockProvider>(
+      builder: (context, provider, _) {
+        // Mostrar error si hubo uno
+        if (provider.error != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              MsgtUtil.showError(context, provider.error!);
+            }
+          });
+        }
 
-              // ── Top Action Cards ──────────────────────────────────────
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const SuppliersScreen()),
-                      ),
-                      child: _buildActionCard(
-                        icon: Icons.local_shipping_outlined,
-                        title: 'Gestión de\nProveedores',
-                        subtitle: 'DIRECTORIOS',
-                        color: AppTheme.surfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const CatalogScreen()),
-                      ),
-                      child: _buildActionCard(
-                        icon: Icons.category_outlined,
-                        title: 'Catálogo de\nProductos',
-                        subtitle: 'ORGANIZAR',
-                        color: AppTheme.secondaryLight,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+        final items = provider.filtered;
 
-              // ── Buscador y Filtros Avanzados ──────────────────────────
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceVariant.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Buscar productos por nombre o SKU...',
-                          hintStyle: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textLight,
-                          ),
-                          prefixIcon:
-                              Icon(Icons.search, color: AppTheme.textLight),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  GestureDetector(
-                    onTap: _showAdvancedFilters,
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryDark,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.tune_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+        return Scaffold(
+          backgroundColor: AppTheme.neutral,
+          body: SafeArea(
+            child: RefreshIndicator(
+              color: AppTheme.primaryDark,
+              onRefresh: provider.refresh,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 10),
 
-              // ── Chips de Filtro Rápido ───────────────────────────────
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: List.generate(_chipFilters.length, (index) {
-                    final isSelected = _selectedFilterIndex == index;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedFilterIndex = index;
-                          });
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primaryDark
-                                : AppTheme.surfaceVariant
-                                    .withValues(alpha: 0.3),
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusFull),
-                          ),
-                          child: Text(
-                            _chipFilters[index],
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                              color:
-                                  isSelected ? Colors.white : AppTheme.textDark,
+                    // ── Top Action Cards ──────────────────────────────
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const SuppliersScreen()),
+                            ),
+                            child: _buildActionCard(
+                              icon: Icons.local_shipping_outlined,
+                              title: 'Gestión de\nProveedores',
+                              subtitle: 'DIRECTORIOS',
+                              color: AppTheme.surfaceVariant,
                             ),
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const CatalogScreen()),
+                            ),
+                            child: _buildActionCard(
+                              icon: Icons.category_outlined,
+                              title: 'Catálogo de\nProductos',
+                              subtitle: 'ORGANIZAR',
+                              color: AppTheme.secondaryLight,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // ── Buscador y Filtros Avanzados ──────────────────
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceVariant.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: (value) =>
+                                  provider.setSearch(value),
+                              decoration: InputDecoration(
+                                hintText: 'Buscar por nombre o SKU...',
+                                hintStyle: TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textLight,
+                                ),
+                                prefixIcon: Icon(Icons.search,
+                                    color: AppTheme.textLight),
+                                suffixIcon: provider.searchQuery != null
+                                    ? IconButton(
+                                        icon: Icon(Icons.close,
+                                            color: AppTheme.textLight,
+                                            size: 18),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          provider.setSearch(null);
+                                        },
+                                      )
+                                    : null,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: () => _showAdvancedFilters(provider),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: provider.categoriaFiltroId != null
+                                  ? AppTheme.primaryDark
+                                  : AppTheme.primaryDark,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.tune_rounded,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Chips de Filtro Rápido ────────────────────────
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: List.generate(_chipLabels.length, (index) {
+                          final isSelected = _selectedFilterIndex == index;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() => _selectedFilterIndex = index);
+                                provider.setEstadoFiltro(_chipEstados[index]);
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppTheme.primaryDark
+                                      : AppTheme.surfaceVariant
+                                          .withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusFull),
+                                ),
+                                child: Text(
+                                  _chipLabels[index],
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : AppTheme.textDark,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
                       ),
-                    );
-                  }),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // ── Header de Lista ───────────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          'Existencias',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textDark,
+                            fontFamily: 'Noto Serif',
+                          ),
+                        ),
+                        provider.isLoading
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.primaryDark,
+                                ),
+                              )
+                            : Text(
+                                '${items.length} ITEMS',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.primaryDark,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Estado: Cargando ──────────────────────────────
+                    if (provider.isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 48),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+
+                    // ── Estado: Sin resultados ────────────────────────
+                    else if (items.isEmpty)
+                      _buildEmptyState()
+
+                    // ── Lista de Productos ────────────────────────────
+                    else
+                      ...items.map((item) => _buildProductItem(item)),
+
+                    const SizedBox(height: 100),
+                  ],
                 ),
               ),
-              const SizedBox(height: 32),
-
-              // ── Header de Lista ──────────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    'Existencias',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.textDark,
-                      fontFamily: 'Noto Serif',
-                    ),
-                  ),
-                  Text(
-                    '124 ITEMS',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primaryDark,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // ── Lista de Productos ───────────────────────────────────
-              _buildProductItem(
-                imageColor: const Color(0xFF1C1A1A),
-                imageIcon: Icons.art_track,
-                title: 'The Modern Art Archive',
-                sku: 'ART-001',
-                category: 'Ediciones de Lujo',
-                qty: '45',
-                qtyColor: AppTheme.primaryDark,
-                status: 'SUFICIENTE',
-                statusBgColor: AppTheme.surfaceVariant,
-                statusTextColor: AppTheme.textDark,
-              ),
-
-              _buildProductItem(
-                imageColor: const Color(0xFFE5802C),
-                imageIcon: Icons.book,
-                title: 'Cuaderno de Piel Siena',
-                sku: 'NOT-442',
-                category: 'Papelería',
-                qty: '08',
-                qtyColor: AppTheme.primaryDark,
-                status: 'STOCK BAJO',
-                statusBgColor: AppTheme.primaryLight.withValues(alpha: 0.3),
-                statusTextColor: AppTheme.error,
-              ),
-
-              _buildProductItem(
-                imageColor: const Color(0xFF4DB6AC),
-                imageIcon: Icons.edit,
-                title: 'Set de Caligrafía Pro',
-                sku: 'PEN-091',
-                category: 'Papelería',
-                qty: '20',
-                qtyColor: AppTheme.primaryDark,
-                status: 'SUFICIENTE',
-                statusBgColor: AppTheme.surfaceVariant,
-                statusTextColor: AppTheme.textDark,
-              ),
-
-              const SizedBox(height: 100), // Espacio para FAB
-            ],
+            ),
           ),
+        );
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // WIDGETS INTERNOS
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 48),
+        child: Column(
+          children: [
+            Icon(Icons.inventory_2_outlined,
+                size: 56, color: AppTheme.textLight),
+            const SizedBox(height: 16),
+            Text(
+              'Sin resultados',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textDark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Intenta con otros filtros o\nagrega productos al catálogo.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: AppTheme.textMedium),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // WIDGETS INTERNOS
-  // ═══════════════════════════════════════════════════════════════════════
   Widget _buildActionCard({
     required IconData icon,
     required String title,
@@ -276,18 +353,9 @@ class _StockScreenState extends State<StockScreen> {
     );
   }
 
-  Widget _buildProductItem({
-    required Color imageColor,
-    required IconData imageIcon,
-    required String title,
-    required String sku,
-    required String category,
-    required String qty,
-    required Color qtyColor,
-    required String status,
-    required Color statusBgColor,
-    required Color statusTextColor,
-  }) {
+  Widget _buildProductItem(StockItem item) {
+    final statusStyle = _resolveStatusStyle(item.estadoStock);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -298,18 +366,18 @@ class _StockScreenState extends State<StockScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Imagen Placeholder
+          // Imagen placeholder con color de categoría
           Container(
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: imageColor,
+              color: _parseCategoryColor(item.categoriaColor),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(imageIcon, color: Colors.white, size: 32),
+            child: const Icon(Icons.inventory_2_outlined,
+                color: Colors.white, size: 32),
           ),
           const SizedBox(width: 16),
-          // Contenido
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,7 +387,7 @@ class _StockScreenState extends State<StockScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        title,
+                        item.nombre,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -341,7 +409,7 @@ class _StockScreenState extends State<StockScreen> {
                           Text('SKU:',
                               style: TextStyle(
                                   fontSize: 8, color: AppTheme.textMedium)),
-                          Text(sku,
+                          Text(item.sku,
                               style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
@@ -353,7 +421,9 @@ class _StockScreenState extends State<StockScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Categoría: $category\nExistencias',
+                  item.categoriaNombre != null
+                      ? 'Categoría: ${item.categoriaNombre}'
+                      : 'Sin categoría',
                   style: TextStyle(
                       fontSize: 12, color: AppTheme.textMedium, height: 1.3),
                 ),
@@ -367,32 +437,33 @@ class _StockScreenState extends State<StockScreen> {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          qty,
+                          '${item.stockTotal}',
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
-                            color: qtyColor,
+                            color: statusStyle.qtyColor,
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Text('unidades',
-                            style: TextStyle(fontSize: 12, color: qtyColor)),
+                        Text(item.unidadMedida,
+                            style: TextStyle(
+                                fontSize: 12, color: statusStyle.qtyColor)),
                       ],
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: statusBgColor,
+                        color: statusStyle.bgColor,
                         borderRadius:
                             BorderRadius.circular(AppTheme.radiusFull),
                       ),
                       child: Text(
-                        status,
+                        statusStyle.label,
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: statusTextColor,
+                          color: statusStyle.textColor,
                         ),
                       ),
                     ),
@@ -406,32 +477,112 @@ class _StockScreenState extends State<StockScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // BOTTOM SHEET DE FILTROS AVANZADOS (Imagen 2)
-  // ═══════════════════════════════════════════════════════════════════════
-  void _showAdvancedFilters() {
+  // ═══════════════════════════════════════════════════════════════
+  // HELPERS
+  // ═══════════════════════════════════════════════════════════════
+
+  _StockStatusStyle _resolveStatusStyle(String estadoStock) {
+    switch (estadoStock) {
+      case 'AGOTADO':
+        return _StockStatusStyle(
+          label: 'AGOTADO',
+          bgColor: AppTheme.error.withValues(alpha: 0.12),
+          textColor: AppTheme.error,
+          qtyColor: AppTheme.error,
+        );
+      case 'STOCK_BAJO':
+        return _StockStatusStyle(
+          label: 'STOCK BAJO',
+          bgColor: AppTheme.primaryLight.withValues(alpha: 0.3),
+          textColor: AppTheme.error,
+          qtyColor: AppTheme.error,
+        );
+      case 'EXCESO':
+        return _StockStatusStyle(
+          label: 'EXCESO',
+          bgColor: AppTheme.secondaryLight.withValues(alpha: 0.3),
+          textColor: AppTheme.primaryDark,
+          qtyColor: AppTheme.primaryDark,
+        );
+      default: // SUFICIENTE
+        return _StockStatusStyle(
+          label: 'SUFICIENTE',
+          bgColor: AppTheme.surfaceVariant,
+          textColor: AppTheme.textDark,
+          qtyColor: AppTheme.primaryDark,
+        );
+    }
+  }
+
+  Color _parseCategoryColor(String? hex) {
+    if (hex == null || hex.isEmpty) return AppTheme.surfaceVariant;
+    try {
+      final cleaned = hex.replaceAll('#', '');
+      return Color(int.parse('FF$cleaned', radix: 16));
+    } catch (_) {
+      return AppTheme.surfaceVariant;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // BOTTOM SHEET DE FILTROS AVANZADOS
+  // ═══════════════════════════════════════════════════════════════
+  void _showAdvancedFilters(StockProvider provider) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const _AdvancedFiltersSheet(),
+      builder: (context) => _AdvancedFiltersSheet(provider: provider),
     );
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Data class para estilos de estado
+// ─────────────────────────────────────────────────────────────────────────────
+class _StockStatusStyle {
+  final String label;
+  final Color bgColor;
+  final Color textColor;
+  final Color qtyColor;
+
+  const _StockStatusStyle({
+    required this.label,
+    required this.bgColor,
+    required this.textColor,
+    required this.qtyColor,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM SHEET
+// ─────────────────────────────────────────────────────────────────────────────
 class _AdvancedFiltersSheet extends StatefulWidget {
-  const _AdvancedFiltersSheet();
+  final StockProvider provider;
+  const _AdvancedFiltersSheet({required this.provider});
 
   @override
   State<_AdvancedFiltersSheet> createState() => _AdvancedFiltersSheetState();
 }
 
 class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
-  int _selectedStockState = 1; // 0=Agotado, 1=Bajo, 2=Suficiente, 3=Exceso
-  List<int> _selectedCategories = [1]; // 0=Mobiliario, 1=Papelería...
+  String? _selectedEstado;
+  int? _selectedCategoriaId;
+
+  final List<String?> _estados = [null, 'AGOTADO', 'STOCK_BAJO', 'SUFICIENTE', 'EXCESO'];
+  final List<String> _estadoLabels = ['Todos', 'Agotado', 'Stock Bajo', 'Suficiente', 'Exceso'];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedEstado = widget.provider.estadoFiltro;
+    _selectedCategoriaId = widget.provider.categoriaFiltroId;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final categorias = widget.provider.categorias;
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       padding: const EdgeInsets.all(24),
@@ -442,7 +593,7 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Handle grabber
+          // Handle
           Center(
             child: Container(
               width: 40,
@@ -455,7 +606,7 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
           ),
           const SizedBox(height: 24),
 
-          // Título y Close Button
+          // Título
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -485,78 +636,73 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
                   _buildSectionTitle('Estado de Stock'),
                   const SizedBox(height: 16),
                   _buildGridButtons(
-                    items: ['Agotado', 'Bajo', 'Suficiente', 'Exceso'],
-                    selectedIndex: _selectedStockState,
-                    onSelect: (index) =>
-                        setState(() => _selectedStockState = index),
+                    items: _estadoLabels,
+                    selectedIndex: _estados.indexOf(_selectedEstado),
+                    onSelect: (i) =>
+                        setState(() => _selectedEstado = _estados[i]),
                   ),
                   const SizedBox(height: 32),
 
-                  // Categoría
-                  _buildSectionTitle('Categoría'),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 12,
-                    children: [
-                      _buildCategoryChip('Mobiliario', 0),
-                      _buildCategoryChip('Papelería', 1),
-                      _buildCategoryChip('Arte', 2),
-                      _buildCategoryChip('Ediciones de Lujo', 3),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Rango de Precio
-                  _buildSectionTitle('Rango de Precio'),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(child: _buildPriceInput('Min')),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('-',
-                            style: TextStyle(color: AppTheme.textMedium)),
-                      ),
-                      Expanded(child: _buildPriceInput('Max')),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Fecha de Ingreso
-                  _buildSectionTitle('Fecha de Ingreso'),
-                  const SizedBox(height: 16),
-                  Row(children: [
-                    Expanded(
-                        child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppTheme.divider),
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusFull),
-                      ),
-                      child: Center(
-                          child: Text('Desde',
-                              style: TextStyle(color: AppTheme.textMedium))),
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryDark,
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusFull),
-                      ),
-                      child: Center(
-                          child: Text('Hasta',
-                              style: TextStyle(color: Colors.white))),
-                    )),
-                  ]),
-                  const SizedBox(height: 48),
+                  // Categoría (dinámica)
+                  if (categorias.isNotEmpty) ...[
+                    _buildSectionTitle('Categoría'),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 12,
+                      children: categorias
+                          .map((c) => _buildCategoryChip(c))
+                          .toList(),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
                 ],
               ),
             ),
+          ),
+
+          // Botones de acción
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    widget.provider.clearFiltros();
+                    Navigator.pop(context);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: BorderSide(color: AppTheme.divider),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusFull),
+                    ),
+                  ),
+                  child: Text('Limpiar',
+                      style: TextStyle(color: AppTheme.textDark)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    widget.provider.setEstadoFiltro(_selectedEstado);
+                    widget.provider.setCategoria(_selectedCategoriaId);
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryDark,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusFull),
+                    ),
+                  ),
+                  child: const Text('Aplicar',
+                      style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -602,7 +748,6 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
                   : Colors.transparent,
               border: Border.all(
                 color: isSelected ? AppTheme.primaryDark : AppTheme.divider,
-                width: 1,
               ),
               borderRadius: BorderRadius.circular(AppTheme.radiusFull),
             ),
@@ -610,8 +755,11 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
               items[index],
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? AppTheme.primaryDark : AppTheme.textMedium,
+                fontWeight:
+                    isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected
+                    ? AppTheme.primaryDark
+                    : AppTheme.textMedium,
               ),
             ),
           ),
@@ -620,21 +768,15 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
     );
   }
 
-  Widget _buildCategoryChip(String label, int index) {
-    final isSelected = _selectedCategories.contains(index);
+  Widget _buildCategoryChip(StockCategoriaItem c) {
+    final isSelected = _selectedCategoriaId == c.id;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          if (isSelected) {
-            _selectedCategories.remove(index);
-          } else {
-            _selectedCategories.add(index);
-          }
-        });
-      },
+      onTap: () => setState(() =>
+          _selectedCategoriaId = isSelected ? null : c.id),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.primaryDark
@@ -645,10 +787,10 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              label,
+              c.nombre,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w500 : FontWeight.w500,
+                fontWeight: FontWeight.w500,
                 color: isSelected ? Colors.white : AppTheme.textDark,
               ),
             ),
@@ -657,30 +799,6 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
               const Icon(Icons.check, size: 14, color: Colors.white),
             ],
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPriceInput(String hint) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceVariant.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-      ),
-      child: TextField(
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          prefixIcon: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Text('\$',
-                style: TextStyle(color: AppTheme.textMedium, fontSize: 14)),
-          ),
-          hintText: hint,
-          hintStyle: TextStyle(color: AppTheme.textLight, fontSize: 14),
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import os
+import sys
 import psycopg2
 from dotenv import load_dotenv
 
@@ -15,9 +16,12 @@ conn = psycopg2.connect(
 conn.autocommit = True
 cur = conn.cursor()
 
-with open('database_scripts/catalog_functions.sql', 'r', encoding='utf-8') as f:
+# Acepta el archivo como argumento, por defecto aplica movement_functions.sql
+sql_file = sys.argv[1] if len(sys.argv) > 1 else 'database_scripts/movement_functions.sql'
+
+with open(sql_file, 'r', encoding='utf-8') as f:
     sql = f.read()
 
 cur.execute(sql)
-print('catalog_functions.sql aplicado correctamente a Aiven.')
+print(f'{sql_file} aplicado correctamente a Aiven.')
 conn.close()
