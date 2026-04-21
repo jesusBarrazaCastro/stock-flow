@@ -146,17 +146,14 @@ COMMENT ON TABLE almacenes IS 'Sucursales/almacenes de cada empresa. Dashboard m
 -- ════════════════════════════════════════════════════════════════════════════
 CREATE TABLE categorias (
     id                  SERIAL PRIMARY KEY,
-    empresa_id          INTEGER         NOT NULL REFERENCES empresas(id),
-    nombre              VARCHAR(150)    NOT NULL,
+    nombre              VARCHAR(150)    NOT NULL UNIQUE,
     descripcion         TEXT,
     color_hex           VARCHAR(7),                         -- Color para la UI, ej: #4DB6AC
 
     -- Columnas de auditoría
     registro_fecha      TIMESTAMP       NOT NULL DEFAULT NOW(),
     registro_estado     BOOLEAN         NOT NULL DEFAULT TRUE,
-    registro_usuario    INTEGER         REFERENCES usuarios(id),
-
-    UNIQUE(empresa_id, nombre)
+    registro_usuario    INTEGER         REFERENCES usuarios(id)
 );
 
 COMMENT ON TABLE categorias IS 'Categorías de productos configurables por empresa.';

@@ -150,18 +150,33 @@ class _StockScreenState extends State<StockScreen> {
                         const SizedBox(width: 12),
                         GestureDetector(
                           onTap: () => _showAdvancedFilters(provider),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: provider.categoriaFiltroId != null
-                                  ? AppTheme.primaryDark
-                                  : AppTheme.primaryDark,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.tune_rounded,
-                              color: Colors.white,
-                            ),
+                          child: Stack(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryDark,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.tune_rounded,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              if (provider.hasAdvancedFilters)
+                                Positioned(
+                                  right: 6,
+                                  top: 6,
+                                  child: Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      color: AppTheme.tertiary,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ],
@@ -568,6 +583,9 @@ class _AdvancedFiltersSheet extends StatefulWidget {
 class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
   String? _selectedEstado;
   int? _selectedCategoriaId;
+  String? _selectedSort;
+  RangeValues? _precioRango;
+  Set<String> _selectedUnidades = {};
 
   final List<String?> _estados = [null, 'AGOTADO', 'STOCK_BAJO', 'SUFICIENTE', 'EXCESO'];
   final List<String> _estadoLabels = ['Todos', 'Agotado', 'Stock Bajo', 'Suficiente', 'Exceso'];
@@ -577,6 +595,12 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
     super.initState();
     _selectedEstado = widget.provider.estadoFiltro;
     _selectedCategoriaId = widget.provider.categoriaFiltroId;
+    _selectedSort = widget.provider.sortOrder;
+    _selectedUnidades = Set.from(widget.provider.unidadesFiltro);
+    final min = widget.provider.precioMin;
+    final max = widget.provider.precioMax;
+    _precioRango = widget.provider.precioRango ??
+        (min < max ? RangeValues(min, max) : null);
   }
 
   @override
@@ -632,6 +656,79 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Ordenar por
+                  _buildSectionTitle('Ordenar por'),
+                  const SizedBox(height: 16),
+                  _buildSortChips(),
+                  const SizedBox(height: 32),
+
+                  // Rango de precio
+                  _buildSectionTitle('Rango de precio'),
+                  const SizedBox(height: 16),
+                  _buildPriceRangeSlider(),
+                  const SizedBox(height: 32),
+
+                  // Unidad de medida (dinámica)
+                  Builder(builder: (context) {
+                    final unidades = widget.provider.unidadesDisponibles;
+                    if (unidades.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionTitle('Unidad de medida'),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 10,
+                          children: unidades.map((u) {
+                            final isSelected = _selectedUnidades.contains(u);
+                            return GestureDetector(
+                              onTap: () => setState(() {
+                                _selectedUnidades = isSelected
+                                    ? (Set.from(_selectedUnidades)..remove(u))
+                                    : (Set.from(_selectedUnidades)..add(u));
+                              }),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppTheme.primaryDark
+                                      : AppTheme.surfaceVariant
+                                          .withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusFull),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      u,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : AppTheme.textDark,
+                                      ),
+                                    ),
+                                    if (isSelected) ...[
+                                      const SizedBox(width: 8),
+                                      const Icon(Icons.check,
+                                          size: 14, color: Colors.white),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 32),
+                      ],
+                    );
+                  }),
+
                   // Estado de Stock
                   _buildSectionTitle('Estado de Stock'),
                   const SizedBox(height: 16),
@@ -686,8 +783,18 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
-                    widget.provider.setEstadoFiltro(_selectedEstado);
-                    widget.provider.setCategoria(_selectedCategoriaId);
+                    final globalMin = widget.provider.precioMin;
+                    final globalMax = widget.provider.precioMax;
+                    final isFullRange = _precioRango == null ||
+                        (_precioRango!.start <= globalMin &&
+                            _precioRango!.end >= globalMax);
+                    widget.provider.applyFiltros(
+                      estado: _selectedEstado,
+                      categoriaId: _selectedCategoriaId,
+                      sortOrder: _selectedSort,
+                      precioRango: isFullRange ? null : _precioRango,
+                      unidades: _selectedUnidades,
+                    );
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
@@ -765,6 +872,115 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSortChips() {
+    final options = [
+      ('newest', 'Más reciente'),
+      ('name_asc', 'Nombre A→Z'),
+      ('price_asc', 'Precio ↑'),
+      ('price_desc', 'Precio ↓'),
+      ('stock_asc', 'Stock ↑'),
+      ('stock_desc', 'Stock ↓'),
+    ];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 10,
+      children: options.map((opt) {
+        final isSelected = _selectedSort == opt.$1;
+        return GestureDetector(
+          onTap: () =>
+              setState(() => _selectedSort = isSelected ? null : opt.$1),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppTheme.primaryDark
+                  : AppTheme.surfaceVariant.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  opt.$2,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color:
+                        isSelected ? Colors.white : AppTheme.textDark,
+                  ),
+                ),
+                if (isSelected) ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.check, size: 14, color: Colors.white),
+                ],
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildPriceRangeSlider() {
+    final globalMin = widget.provider.precioMin;
+    final globalMax = widget.provider.precioMax;
+    final hasRange = globalMax > globalMin;
+
+    if (!hasRange) {
+      return Text(
+        'Todos los productos tienen el mismo precio',
+        style: TextStyle(fontSize: 13, color: AppTheme.textMedium),
+      );
+    }
+
+    final current = _precioRango ?? RangeValues(globalMin, globalMax);
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '\$${current.start.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryDark,
+              ),
+            ),
+            Text(
+              '\$${current.end.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryDark,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: AppTheme.primaryDark,
+            inactiveTrackColor: AppTheme.surfaceVariant,
+            thumbColor: AppTheme.primaryDark,
+            overlayColor: AppTheme.primaryDark.withValues(alpha: 0.12),
+            trackHeight: 4,
+          ),
+          child: RangeSlider(
+            values: current,
+            min: globalMin,
+            max: globalMax,
+            divisions: 20,
+            onChanged: (values) => setState(() => _precioRango = values),
+          ),
+        ),
+      ],
     );
   }
 

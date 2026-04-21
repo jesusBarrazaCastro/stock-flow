@@ -268,3 +268,37 @@ class AlmacenItem(BaseModel):
 
 class AlmacenesList(BaseModel):
     items: List[AlmacenItem]
+
+
+# ── Dashboard schemas ────────────────────────────────────────────────────────
+
+class DashboardKpisResponse(BaseModel):
+    inventario_total_unidades: int = 0
+    total_productos: int = 0
+    total_almacenes: int = 0
+    capacidad_total: int = 0
+
+
+class DashboardActividadItem(BaseModel):
+    id: int
+    tipo_movimiento: str
+    cantidad: int
+    fecha_movimiento: str
+    producto_nombre: Optional[str] = None
+    almacen_nombre: Optional[str] = None
+
+
+class DashboardActividadResponse(BaseModel):
+    items: List[DashboardActividadItem]
+
+
+class InsightsDia(BaseModel):
+    fecha: str
+    total: int = 0
+
+
+class InsightsResponse(BaseModel):
+    sin_datos: bool = False
+    producto_nombre: Optional[str] = None
+    pct_cambio: Optional[float] = None
+    dias: List[InsightsDia] = []

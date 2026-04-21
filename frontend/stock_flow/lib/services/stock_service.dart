@@ -83,12 +83,13 @@ class StockService {
   Future<List<StockItem>> getStock({
     String? search,
     int? categoriaId,
+    String sort = 'newest',
     int page = 1,
     int limit = 50,
   }) async {
     try {
       final params = <String, String>{
-        'sort': 'newest',
+        'sort': sort,
         'page': '$page',
         'limit': '$limit',
         if (search != null && search.isNotEmpty) 'search': search,

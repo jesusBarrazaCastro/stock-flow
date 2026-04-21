@@ -74,27 +74,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Título y subtítulo
-                      Text(
-                        'Proveedores',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.textDark,
-                          fontFamily: 'Noto Serif',
-                          height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Directorio curado de socios y manufacturas para Stock Flow.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMedium,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
                       // Barra de búsqueda
                       _buildSearchBar(provider),
                       const SizedBox(height: 16),
@@ -102,10 +81,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                       // Card de Resumen de Red
                       _buildRedSummaryCard(provider),
                       const SizedBox(height: 16),
-
-                      // Banner Curación Premium
-                      _buildPremiumBanner(),
-                      const SizedBox(height: 20),
 
                       // Lista de proveedores
                       _buildProveedorList(provider),
@@ -123,27 +98,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Label del FAB
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.neutral,
-              borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-            ),
-            child: Text(
-              'Expandir Red',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textMedium,
-              ),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Registrar un nuevo socio comercial',
-            style: TextStyle(fontSize: 10, color: AppTheme.textLight),
-          ),
+          
           const SizedBox(height: 8),
           FloatingActionButton.extended(
             onPressed: () async {
@@ -171,38 +126,100 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           ),
         ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      //floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
   Widget _buildSearchBar(SupplierProvider provider) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: TextField(
-        controller: _searchCtrl,
-        onChanged: _onSearchChanged,
-        decoration: InputDecoration(
-          hintText: '  Buscar por nombre o categoría...',
-          hintStyle: TextStyle(fontSize: 14, color: AppTheme.textLight),
-          prefixIcon: Icon(Icons.search, color: AppTheme.textLight),
-          suffixIcon: _searchCtrl.text.isNotEmpty
-              ? IconButton(
-                  icon: Icon(Icons.close, color: AppTheme.textLight, size: 18),
-                  onPressed: () {
-                    _searchCtrl.clear();
-                    context.read<SupplierProvider>().setSearch(null);
-                  },
-                )
-              : null,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                hintText: 'Buscar por nombre o categoría...',
+                hintStyle: TextStyle(fontSize: 14, color: AppTheme.textLight),
+                prefixIcon: Icon(Icons.search, color: AppTheme.textLight),
+                suffixIcon: _searchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.close,
+                            color: AppTheme.textLight, size: 18),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          context.read<SupplierProvider>().setSearch(null);
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
         ),
+        const SizedBox(width: 10),
+        GestureDetector(
+          onTap: _showAdvancedFilters,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: provider.hasActiveFilters
+                      ? AppTheme.primary
+                      : AppTheme.primaryDark,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                ),
+                child: const Icon(Icons.tune_rounded, color: Colors.white),
+              ),
+              if (provider.hasActiveFilters)
+                Positioned(
+                  top: -4,
+                  right: -4,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showAdvancedFilters() {
+    final provider = context.read<SupplierProvider>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SupplierFiltersSheet(
+        estadoActual: provider.estadoFiltro,
+        categoriaActual: provider.categoriaFiltro,
+        maxDiasActual: provider.maxDiasFiltro,
+        categoriasDisponibles: provider.categoriasDisponibles,
+        onApply: ({required String? estado, required String? categoria, required int? maxDias}) {
+          provider.applyFilters(
+            estado: estado,
+            categoria: categoria,
+            maxDias: maxDias,
+          );
+        },
+        onClear: provider.clearFilters,
       ),
     );
   }
@@ -268,60 +285,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                 color: AppTheme.warning,
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPremiumBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppTheme.primaryDark, AppTheme.primary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-            ),
-            child: const Icon(Icons.workspace_premium_rounded,
-                color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Curación Premium',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    fontFamily: 'Noto Serif',
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Mantenemos un estándar de calidad máximo con auditorías trimestrales a cada proveedor registrado.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.85),
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -683,6 +646,275 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Filtros Sheet ────────────────────────────────────────────────────────────
+class _SupplierFiltersSheet extends StatefulWidget {
+  final String? estadoActual;
+  final String? categoriaActual;
+  final int? maxDiasActual;
+  final List<String> categoriasDisponibles;
+  final void Function({
+    required String? estado,
+    required String? categoria,
+    required int? maxDias,
+  }) onApply;
+  final VoidCallback onClear;
+
+  const _SupplierFiltersSheet({
+    required this.estadoActual,
+    required this.categoriaActual,
+    required this.maxDiasActual,
+    required this.categoriasDisponibles,
+    required this.onApply,
+    required this.onClear,
+  });
+
+  @override
+  State<_SupplierFiltersSheet> createState() => _SupplierFiltersSheetState();
+}
+
+class _SupplierFiltersSheetState extends State<_SupplierFiltersSheet> {
+  String? _estado;
+  String? _categoria;
+  int? _maxDias;
+
+  static const _diasOpciones = [3, 7, 15, 30];
+
+  @override
+  void initState() {
+    super.initState();
+    _estado = widget.estadoActual;
+    _categoria = widget.categoriaActual;
+    _maxDias = widget.maxDiasActual;
+  }
+
+  bool get _hasChanges =>
+      _estado != widget.estadoActual ||
+      _categoria != widget.categoriaActual ||
+      _maxDias != widget.maxDiasActual;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+          24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Filtros',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textDark,
+                  fontFamily: 'Noto Serif',
+                ),
+              ),
+              if (widget.estadoActual != null ||
+                  widget.categoriaActual != null ||
+                  widget.maxDiasActual != null)
+                TextButton(
+                  onPressed: () {
+                    widget.onClear();
+                    Navigator.pop(context);
+                  },
+                  child: Text(
+                    'Limpiar todo',
+                    style: TextStyle(
+                      color: AppTheme.error,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // ── Estado ──────────────────────────────────────────────
+          _buildSectionLabel('ESTADO'),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            children: [
+              _FilterChip(
+                label: 'Todos',
+                isSelected: _estado == null,
+                onTap: () => setState(() => _estado = null),
+              ),
+              _FilterChip(
+                label: 'Activo',
+                isSelected: _estado == 'ACTIVO',
+                onTap: () => setState(
+                    () => _estado = _estado == 'ACTIVO' ? null : 'ACTIVO'),
+                activeColor: AppTheme.tertiary,
+              ),
+              _FilterChip(
+                label: 'En revisión',
+                isSelected: _estado == 'EN_REVISION',
+                onTap: () => setState(() =>
+                    _estado = _estado == 'EN_REVISION' ? null : 'EN_REVISION'),
+                activeColor: AppTheme.warning,
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // ── Categoría ────────────────────────────────────────────
+          if (widget.categoriasDisponibles.isNotEmpty) ...[
+            _buildSectionLabel('CATEGORÍA'),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _FilterChip(
+                  label: 'Todas',
+                  isSelected: _categoria == null,
+                  onTap: () => setState(() => _categoria = null),
+                ),
+                ...widget.categoriasDisponibles.map((cat) => _FilterChip(
+                      label: cat,
+                      isSelected: _categoria == cat,
+                      onTap: () => setState(
+                          () => _categoria = _categoria == cat ? null : cat),
+                    )),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Días de entrega ──────────────────────────────────────
+          _buildSectionLabel('DÍAS DE ENTREGA'),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            children: [
+              _FilterChip(
+                label: 'Cualquiera',
+                isSelected: _maxDias == null,
+                onTap: () => setState(() => _maxDias = null),
+              ),
+              ..._diasOpciones.map((d) => _FilterChip(
+                    label: '≤ $d días',
+                    isSelected: _maxDias == d,
+                    onTap: () =>
+                        setState(() => _maxDias = _maxDias == d ? null : d),
+                  )),
+            ],
+          ),
+          const SizedBox(height: 28),
+
+          // ── Botón aplicar ────────────────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                widget.onApply(
+                  estado: _estado,
+                  categoria: _categoria,
+                  maxDias: _maxDias,
+                );
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryDark,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                _hasChanges ? 'Aplicar filtros' : 'Cerrar',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String text) => Text(
+        text,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.textLight,
+          letterSpacing: 1.2,
+        ),
+      );
+}
+
+// ─── Filter Chip ──────────────────────────────────────────────────────────────
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final Color? activeColor;
+
+  const _FilterChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    this.activeColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = activeColor ?? AppTheme.primaryDark;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? color : AppTheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+          border: Border.all(
+            color: isSelected ? color : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? Colors.white : AppTheme.textMedium,
+          ),
+        ),
       ),
     );
   }

@@ -192,24 +192,28 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel('Precio Unitario'),
-                                _buildPriceField(provider),
-                              ],
+                          if (_isEntry) ...[
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Precio Unitario'),
+                                  _buildPriceField(provider),
+                                ],
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 24),
 
-                      // ── Proveedor / Origen ─────────────────────────────
-                      _buildLabel('Proveedor / Origen'),
-                      _buildProveedorDropdown(provider),
-                      const SizedBox(height: 24),
+                      // ── Proveedor / Origen (solo en ENTRADA) ──────────
+                      if (_isEntry) ...[
+                        _buildLabel('Proveedor / Origen'),
+                        _buildProveedorDropdown(provider),
+                        const SizedBox(height: 24),
+                      ],
 
                       // ── Notas ─────────────────────────────────
                       _buildLabel('Notas Adicionales'),
@@ -282,7 +286,11 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
               title: 'Salida',
               icon: Icons.logout_rounded,
               isSelected: !_isEntry,
-              onTap: () => setState(() => _isEntry = false),
+              onTap: () => setState(() {
+                _isEntry = false;
+                _priceController.clear();
+                _selectedProveedor = null;
+              }),
             ),
           ),
         ],
@@ -475,8 +483,8 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
                 onTap: () {
                   provider.seleccionarProducto(item);
                   _searchController.clear();
-                  // Autocompletar precio
-                  if (item.precioUnitario > 0) {
+                  // Autocompletar precio solo en ENTRADA
+                  if (_isEntry && item.precioUnitario > 0) {
                     _priceController.text =
                         item.precioUnitario.toStringAsFixed(2);
                   }

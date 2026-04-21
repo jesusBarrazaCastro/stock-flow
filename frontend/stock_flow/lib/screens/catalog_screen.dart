@@ -47,7 +47,14 @@ class _CatalogScreenState extends State<CatalogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.neutral,
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
+        label: const Text(
+          'Añadir Producto',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         onPressed: () async {
           final added = await Navigator.push<bool>(
             context,
@@ -59,7 +66,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
           }
         },
         backgroundColor: AppTheme.primary,
-        child: const Icon(Icons.add, color: Colors.white),
+        icon: const Icon(Icons.add, color: Colors.white),
       ),
       appBar: AppBar(
         backgroundColor: AppTheme.neutral,

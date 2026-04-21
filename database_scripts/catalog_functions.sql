@@ -178,8 +178,7 @@ BEGIN
         FROM (
             SELECT id, nombre, color_hex
             FROM categorias
-            WHERE empresa_id = p_empresa_id
-              AND registro_estado = TRUE
+            WHERE registro_estado = TRUE
             ORDER BY nombre
         ) c;
 

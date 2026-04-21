@@ -21,6 +21,9 @@ class SupplierProvider extends ChangeNotifier {
   int _enRevision = 0;
 
   String? _searchQuery;
+  String? _estadoFiltro;
+  String? _categoriaFiltro;
+  int? _maxDiasFiltro;
 
   // Getters
   List<ProveedorItem> get proveedores => _proveedores;
@@ -35,6 +38,21 @@ class SupplierProvider extends ChangeNotifier {
   int get nuevos => _nuevos;
   int get enRevision => _enRevision;
   String? get searchQuery => _searchQuery;
+  String? get estadoFiltro => _estadoFiltro;
+  String? get categoriaFiltro => _categoriaFiltro;
+  int? get maxDiasFiltro => _maxDiasFiltro;
+
+  bool get hasActiveFilters =>
+      _estadoFiltro != null || _categoriaFiltro != null || _maxDiasFiltro != null;
+
+  /// Categorías únicas extraídas de la lista cargada.
+  List<String> get categoriasDisponibles => _proveedores
+      .map((p) => p.categoria)
+      .whereType<String>()
+      .where((c) => c.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
 
   Future<void> loadProveedores({bool resetPage = false}) async {
     if (resetPage) _currentPage = 1;
@@ -45,6 +63,9 @@ class SupplierProvider extends ChangeNotifier {
     try {
       final result = await _service.getProveedores(
         search: _searchQuery,
+        categoria: _categoriaFiltro,
+        estado: _estadoFiltro,
+        maxDias: _maxDiasFiltro,
         page: _currentPage,
         limit: 20,
       );
@@ -100,6 +121,24 @@ class SupplierProvider extends ChangeNotifier {
 
   void setSearch(String? query) {
     _searchQuery = (query == null || query.isEmpty) ? null : query;
+    loadProveedores(resetPage: true);
+  }
+
+  void applyFilters({
+    required String? estado,
+    required String? categoria,
+    required int? maxDias,
+  }) {
+    _estadoFiltro = estado;
+    _categoriaFiltro = categoria;
+    _maxDiasFiltro = maxDias;
+    loadProveedores(resetPage: true);
+  }
+
+  void clearFilters() {
+    _estadoFiltro = null;
+    _categoriaFiltro = null;
+    _maxDiasFiltro = null;
     loadProveedores(resetPage: true);
   }
 

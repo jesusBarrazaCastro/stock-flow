@@ -36,6 +36,8 @@ def get_proveedores(
     categoria: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    estado: Optional[str] = Query(None),
+    max_dias: Optional[int] = Query(None, ge=1),
     token_payload: dict = Depends(get_current_user_token),
 ):
     empresa_id = _get_empresa_id(token_payload)
@@ -48,6 +50,8 @@ def get_proveedores(
         categoria,
         page,
         limit,
+        estado,
+        max_dias,
     )
     if "error" in data:
         raise HTTPException(status_code=400, detail=data["error"])

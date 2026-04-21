@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:stock_flow/app_theme.dart';
 import 'dashboard_screen.dart';
 import 'stock_screen.dart';
@@ -34,11 +35,11 @@ class _MainNavigationState extends State<MainNavigation>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    StockScreen(),
-    DataScreen(),
-    ProfileScreen(),
+  late final List<Widget> _screens = [
+    DashboardScreen(onNavigateToTab: _onTabSelected),
+    const StockScreen(),
+    const DataScreen(),
+    const ProfileScreen(),
   ];
 
   // Datos de los nav items
@@ -160,6 +161,31 @@ class _MainNavigationState extends State<MainNavigation>
                 Icons.person,
                 color: AppTheme.tertiary,
                 size: 24,
+              ),
+            ),
+            // Título
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Stock',
+                    style: GoogleFonts.playfairDisplay(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textDark,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'Flow',
+                    style: GoogleFonts.playfairDisplay(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primary,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
               ),
             ),
             // Notificación

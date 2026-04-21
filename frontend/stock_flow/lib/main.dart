@@ -10,6 +10,7 @@ import 'providers/product_provider.dart';
 import 'providers/supplier_provider.dart';
 import 'providers/stock_provider.dart';
 import 'providers/movimiento_provider.dart';
+import 'providers/dashboard_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +34,7 @@ class StockFlowApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SupplierProvider()),
         ChangeNotifierProvider(create: (_) => StockProvider()),
         ChangeNotifierProvider(create: (_) => MovimientoProvider()),
+        ChangeNotifierProvider(create: (_) => DashboardProvider()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, auth, _) {

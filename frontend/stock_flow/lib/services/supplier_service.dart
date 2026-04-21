@@ -225,6 +225,8 @@ class SupplierService {
   Future<ProveedorListaPaginada> getProveedores({
     String? search,
     String? categoria,
+    String? estado,
+    int? maxDias,
     int page = 1,
     int limit = 20,
   }) async {
@@ -234,6 +236,8 @@ class SupplierService {
         'limit': '$limit',
         if (search != null && search.isNotEmpty) 'search': search,
         if (categoria != null && categoria.isNotEmpty) 'categoria': categoria,
+        if (estado != null && estado.isNotEmpty) 'estado': estado,
+        if (maxDias != null) 'max_dias': '$maxDias',
       };
       final query = Uri(queryParameters: params).query;
       final response = await _api.get('/proveedores/lista?$query');

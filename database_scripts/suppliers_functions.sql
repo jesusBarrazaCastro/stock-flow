@@ -1,12 +1,3 @@
--- =============================================================
--- MIGRACIONES: Columnas adicionales en proveedores
--- Ejecutar antes de las funciones si la tabla ya existe.
--- =============================================================
-ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS categoria       VARCHAR(150);
-ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS dias_entrega    INTEGER DEFAULT 5;
-ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS logo_url        TEXT;
-ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS calificacion    NUMERIC(3,1) DEFAULT 0;
-ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS certificado_desde INTEGER;  -- Año de certificación
 
 
 -- =============================================================
@@ -23,7 +14,9 @@ CREATE OR REPLACE FUNCTION public.read_proveedores(
     p_search       TEXT    DEFAULT NULL,
     p_categoria    TEXT    DEFAULT NULL,
     p_page         INT     DEFAULT 1,
-    p_limit        INT     DEFAULT 20
+    p_limit        INT     DEFAULT 20,
+    p_estado       TEXT    DEFAULT NULL,
+    p_max_dias     INT     DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -74,7 +67,15 @@ BEGIN
                OR p.nombre ILIKE '%' || p_search || '%'
                OR p.categoria ILIKE '%' || p_search || '%')
           AND (p_categoria IS NULL OR p_categoria = ''
-               OR p.categoria ILIKE p_categoria);
+               OR p.categoria ILIKE p_categoria)
+          AND (p_max_dias IS NULL OR p.dias_entrega <= p_max_dias)
+          AND (p_estado IS NULL OR p_estado = ''
+               OR (p_estado = 'ACTIVO'
+                   AND p.contacto_email IS NOT NULL
+                   AND TRIM(p.contacto_email) != '')
+               OR (p_estado = 'EN_REVISION'
+                   AND (p.contacto_email IS NULL
+                        OR TRIM(p.contacto_email) = '')));
 
         SELECT jsonb_agg(row_to_json(t)::jsonb) INTO v_items
         FROM (
@@ -92,13 +93,11 @@ BEGIN
                 p.certificado_desde,
                 p.notas,
                 to_char(p.registro_fecha, 'DD Mon YYYY') AS registro_fecha,
-                -- Estado: ACTIVO si tiene email, EN_REVISION si no
                 CASE
                     WHEN p.contacto_email IS NOT NULL AND TRIM(p.contacto_email) != ''
                     THEN 'ACTIVO'
                     ELSE 'EN_REVISION'
                 END AS estado,
-                -- Total de productos asignados a este proveedor
                 (SELECT COUNT(*) FROM productos pr
                  WHERE pr.proveedor_id = p.id AND pr.registro_estado = TRUE
                 ) AS total_productos
@@ -110,6 +109,14 @@ BEGIN
                    OR p.categoria ILIKE '%' || p_search || '%')
               AND (p_categoria IS NULL OR p_categoria = ''
                    OR p.categoria ILIKE p_categoria)
+              AND (p_max_dias IS NULL OR p.dias_entrega <= p_max_dias)
+              AND (p_estado IS NULL OR p_estado = ''
+                   OR (p_estado = 'ACTIVO'
+                       AND p.contacto_email IS NOT NULL
+                       AND TRIM(p.contacto_email) != '')
+                   OR (p_estado = 'EN_REVISION'
+                       AND (p.contacto_email IS NULL
+                            OR TRIM(p.contacto_email) = '')))
             ORDER BY p.registro_fecha DESC
             LIMIT p_limit OFFSET v_offset
         ) t;
