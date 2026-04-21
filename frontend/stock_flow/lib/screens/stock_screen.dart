@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stock_flow/app_theme.dart';
 import 'catalog_screen.dart';
+import 'suppliers_screen.dart';
 
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
@@ -29,11 +30,18 @@ class _StockScreenState extends State<StockScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _buildActionCard(
-                      icon: Icons.local_shipping_outlined,
-                      title: 'Gestión de\nProveedores',
-                      subtitle: 'DIRECTORIOS',
-                      color: AppTheme.surfaceVariant,
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SuppliersScreen()),
+                      ),
+                      child: _buildActionCard(
+                        icon: Icons.local_shipping_outlined,
+                        title: 'Gestión de\nProveedores',
+                        subtitle: 'DIRECTORIOS',
+                        color: AppTheme.surfaceVariant,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),

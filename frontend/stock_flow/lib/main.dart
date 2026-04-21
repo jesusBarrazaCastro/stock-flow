@@ -7,6 +7,7 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/product_provider.dart';
+import 'providers/supplier_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,7 @@ class StockFlowApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(create: (_) => SupplierProvider()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, auth, _) {

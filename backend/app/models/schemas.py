@@ -149,3 +149,91 @@ class ProductoCatalogCreate(BaseModel):
     stock_maximo: Optional[int] = None
     imagen_url: Optional[str] = None
     ubicacion_fisica: Optional[str] = None
+
+
+# ── Proveedor schemas ─────────────────────────────────────────────────────
+
+class ProductoSuministrado(BaseModel):
+    id: int
+    nombre: str
+    sku: str
+    imagen_url: Optional[str] = None
+    categoria_nombre: Optional[str] = None
+    categoria_color: Optional[str] = None
+    stock_total: int = 0
+
+
+class PedidoHistorial(BaseModel):
+    id: int
+    numero_pedido: str
+    fecha: Optional[str] = None
+    cantidad: int
+    precio_unitario: Optional[float] = None
+    monto_total: float = 0.0
+    producto_nombre: Optional[str] = None
+    estado_pedido: str = 'COMPLETADO'
+
+
+class ProveedorListItem(BaseModel):
+    id: int
+    nombre: str
+    categoria: Optional[str] = None
+    contacto_nombre: Optional[str] = None
+    contacto_email: Optional[str] = None
+    contacto_telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    dias_entrega: Optional[int] = 5
+    logo_url: Optional[str] = None
+    calificacion: Optional[float] = 0.0
+    certificado_desde: Optional[int] = None
+    notas: Optional[str] = None
+    registro_fecha: Optional[str] = None
+    estado: str = 'ACTIVO'
+    total_productos: int = 0
+
+
+class ProveedorLista(BaseModel):
+    items: List[ProveedorListItem]
+    total: int
+    page: int
+    limit: int
+    pages: float
+    aliados_total: int = 0
+    nuevos: int = 0
+    en_revision: int = 0
+
+
+class ProveedorDetalle(ProveedorListItem):
+    productos_suministrados: List[ProductoSuministrado] = []
+    pedidos_total: int = 0
+    cumplimiento: float = 0.0
+    tiempo_entrega: float = 0.0
+    historial_pedidos: List[PedidoHistorial] = []
+
+
+class ProveedorCreate(BaseModel):
+    nombre: str
+    categoria: Optional[str] = None
+    contacto_nombre: Optional[str] = None
+    contacto_email: Optional[str] = None
+    contacto_telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    dias_entrega: int = 5
+    logo_url: Optional[str] = None
+    calificacion: Optional[float] = None
+    certificado_desde: Optional[int] = None
+    notas: Optional[str] = None
+
+
+class ProveedorUpdate(BaseModel):
+    nombre: Optional[str] = None
+    categoria: Optional[str] = None
+    contacto_nombre: Optional[str] = None
+    contacto_email: Optional[str] = None
+    contacto_telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    dias_entrega: Optional[int] = None
+    logo_url: Optional[str] = None
+    calificacion: Optional[float] = None
+    certificado_desde: Optional[int] = None
+    notas: Optional[str] = None
