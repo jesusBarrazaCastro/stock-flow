@@ -16,6 +16,66 @@ class CategoriaItem {
       );
 }
 
+class LoteCaducidad {
+  final int movimientoId;
+  final int cantidad;
+  final String? fechaCaducidad;
+  final int? diasRestantes;
+  final String estado;
+  final String? almacenNombre;
+
+  const LoteCaducidad({
+    required this.movimientoId,
+    required this.cantidad,
+    this.fechaCaducidad,
+    this.diasRestantes,
+    required this.estado,
+    this.almacenNombre,
+  });
+
+  factory LoteCaducidad.fromJson(Map<String, dynamic> j) => LoteCaducidad(
+        movimientoId: (j['movimiento_id'] as num).toInt(),
+        cantidad: (j['cantidad'] as num).toInt(),
+        fechaCaducidad: j['fecha_caducidad']?.toString(),
+        diasRestantes: (j['dias_restantes'] as num?)?.toInt(),
+        estado: j['estado'] ?? 'OK',
+        almacenNombre: j['almacen_nombre'],
+      );
+}
+
+class CaducidadLoteItem {
+  final int movimientoId;
+  final int productoId;
+  final String productoNombre;
+  final String unidadMedida;
+  final int cantidad;
+  final String? fechaCaducidad;
+  final int? diasRestantes;
+  final String estado;
+
+  const CaducidadLoteItem({
+    required this.movimientoId,
+    required this.productoId,
+    required this.productoNombre,
+    required this.unidadMedida,
+    required this.cantidad,
+    this.fechaCaducidad,
+    this.diasRestantes,
+    required this.estado,
+  });
+
+  factory CaducidadLoteItem.fromJson(Map<String, dynamic> j) => CaducidadLoteItem(
+        movimientoId: (j['movimiento_id'] as num).toInt(),
+        productoId: (j['producto_id'] as num).toInt(),
+        productoNombre: j['producto_nombre'] ?? '',
+        unidadMedida: j['unidad_medida'] ?? 'unidad',
+        cantidad: (j['cantidad'] as num).toInt(),
+        fechaCaducidad: j['fecha_caducidad']?.toString(),
+        diasRestantes: (j['dias_restantes'] as num?)?.toInt(),
+        estado: j['estado'] ?? 'OK',
+      );
+}
+
 class CatalogoProducto {
   final int id;
   final String nombre;
@@ -34,6 +94,9 @@ class CatalogoProducto {
   final String? proveedorNombre;
   final int stockTotal;
   final String estadoStock;
+  final bool tieneCaducidad;
+  final String? proximaCaducidad;
+  final bool? expiraProto;
 
   const CatalogoProducto({
     required this.id,
@@ -53,6 +116,9 @@ class CatalogoProducto {
     this.proveedorNombre,
     required this.stockTotal,
     required this.estadoStock,
+    this.tieneCaducidad = false,
+    this.proximaCaducidad,
+    this.expiraProto,
   });
 
   factory CatalogoProducto.fromJson(Map<String, dynamic> j) => CatalogoProducto(
@@ -73,6 +139,9 @@ class CatalogoProducto {
         proveedorNombre: j['proveedor_nombre'],
         stockTotal: (j['stock_total'] as num?)?.toInt() ?? 0,
         estadoStock: j['estado_stock'] ?? 'AGOTADO',
+        tieneCaducidad: j['tiene_caducidad'] as bool? ?? false,
+        proximaCaducidad: j['proxima_caducidad']?.toString(),
+        expiraProto: j['expira_pronto'] as bool?,
       );
 }
 
@@ -118,6 +187,7 @@ class ProductoDetalle extends CatalogoProducto {
   final String? ubicacionFisica;
   final String? almacenNombre;
   final List<MovimientoReciente> movimientosRecientes;
+  final List<LoteCaducidad> lotesCaducidad;
 
   const ProductoDetalle({
     required super.id,
@@ -137,10 +207,14 @@ class ProductoDetalle extends CatalogoProducto {
     super.proveedorNombre,
     required super.stockTotal,
     required super.estadoStock,
+    super.tieneCaducidad,
+    super.proximaCaducidad,
+    super.expiraProto,
     this.almacenId,
     this.ubicacionFisica,
     this.almacenNombre,
     required this.movimientosRecientes,
+    this.lotesCaducidad = const [],
   });
 
   factory ProductoDetalle.fromJson(Map<String, dynamic> j) => ProductoDetalle(
@@ -161,11 +235,17 @@ class ProductoDetalle extends CatalogoProducto {
         proveedorNombre: j['proveedor_nombre'],
         stockTotal: (j['stock_total'] as num?)?.toInt() ?? 0,
         estadoStock: j['estado_stock'] ?? 'AGOTADO',
+        tieneCaducidad: j['tiene_caducidad'] as bool? ?? false,
+        proximaCaducidad: j['proxima_caducidad']?.toString(),
+        expiraProto: j['expira_pronto'] as bool?,
         almacenId: j['almacen_id'],
         ubicacionFisica: j['ubicacion_fisica'],
         almacenNombre: j['almacen_nombre'],
         movimientosRecientes: (j['movimientos_recientes'] as List<dynamic>? ?? [])
             .map((m) => MovimientoReciente.fromJson(m as Map<String, dynamic>))
+            .toList(),
+        lotesCaducidad: (j['lotes_caducidad'] as List<dynamic>? ?? [])
+            .map((l) => LoteCaducidad.fromJson(l as Map<String, dynamic>))
             .toList(),
       );
 }
@@ -279,6 +359,22 @@ class ProductService {
       }
     } catch (e) {
       debugPrint('[ProductService.createProducto] $e');
+      rethrow;
+    }
+  }
+
+  Future<List<CaducidadLoteItem>> getCaducidades() async {
+    try {
+      final response = await _api.get('/productos/caducidades');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return (data['items'] as List<dynamic>)
+            .map((e) => CaducidadLoteItem.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      throw Exception('Error ${response.statusCode}');
+    } catch (e) {
+      debugPrint('[ProductService.getCaducidades] $e');
       rethrow;
     }
   }

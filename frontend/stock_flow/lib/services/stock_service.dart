@@ -38,6 +38,9 @@ class StockItem {
   final String estadoStock;
   final String unidadMedida;
   final double precioUnitario;
+  final bool tieneCaducidad;
+  final String? proximaCaducidad;
+  final bool? expiraProto;
 
   const StockItem({
     required this.id,
@@ -52,6 +55,9 @@ class StockItem {
     required this.estadoStock,
     required this.unidadMedida,
     required this.precioUnitario,
+    this.tieneCaducidad = false,
+    this.proximaCaducidad,
+    this.expiraProto,
   });
 
   factory StockItem.fromJson(Map<String, dynamic> j) => StockItem(
@@ -67,6 +73,9 @@ class StockItem {
         estadoStock: j['estado_stock'] ?? 'AGOTADO',
         unidadMedida: j['unidad_medida'] ?? 'unidad',
         precioUnitario: (j['precio_unitario'] as num?)?.toDouble() ?? 0.0,
+        tieneCaducidad: j['tiene_caducidad'] as bool? ?? false,
+        proximaCaducidad: j['proxima_caducidad']?.toString(),
+        expiraProto: j['expira_pronto'] as bool?,
       );
 }
 

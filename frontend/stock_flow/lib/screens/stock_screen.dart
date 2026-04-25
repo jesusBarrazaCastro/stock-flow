@@ -17,9 +17,9 @@ class StockScreen extends StatefulWidget {
 class _StockScreenState extends State<StockScreen> {
   int _selectedFilterIndex = 0;
 
-  // Mapa chip → estado_stock (null = Todo)
-  final List<String?> _chipEstados = [null, 'STOCK_BAJO', 'AGOTADO', 'EXCESO'];
-  final List<String> _chipLabels = ['Todo', 'Stock Bajo', 'Agotado', 'Exceso'];
+  // Mapa chip → estado_stock (null = Todo), 'EXPIRA_PRONTO' se filtra por expiraProto
+  final List<String?> _chipEstados = [null, 'STOCK_BAJO', 'AGOTADO', 'EXCESO', 'EXPIRA_PRONTO'];
+  final List<String> _chipLabels = ['Todo', 'Stock Bajo', 'Agotado', 'Exceso', 'Expira Pronto'];
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -465,22 +465,49 @@ class _StockScreenState extends State<StockScreen> {
                                 fontSize: 12, color: statusStyle.qtyColor)),
                       ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusStyle.bgColor,
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusFull),
-                      ),
-                      child: Text(
-                        statusStyle.label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: statusStyle.textColor,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: statusStyle.bgColor,
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusFull),
+                          ),
+                          child: Text(
+                            statusStyle.label,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: statusStyle.textColor,
+                            ),
+                          ),
                         ),
-                      ),
+                        if (item.expiraProto == true) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusFull),
+                            ),
+                            child: Text(
+                              item.proximaCaducidad != null
+                                  ? '⚠ Vence ${_formatDate(item.proximaCaducidad!)}'
+                                  : '⚠ EXPIRA PRONTO',
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFD97706),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -537,6 +564,14 @@ class _StockScreenState extends State<StockScreen> {
     } catch (_) {
       return AppTheme.surfaceVariant;
     }
+  }
+
+  String _formatDate(String isoDate) {
+    try {
+      final parts = isoDate.split('-');
+      if (parts.length >= 3) return '${parts[2]}/${parts[1]}';
+    } catch (_) {}
+    return isoDate;
   }
 
   // ═══════════════════════════════════════════════════════════════

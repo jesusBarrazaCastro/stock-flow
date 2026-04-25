@@ -11,12 +11,16 @@ class DashboardKpis {
   final int totalProductos;
   final int totalAlmacenes;
   final int capacidadTotal;
+  final int proximosCaducar;
+  final int alertasStock;
 
   const DashboardKpis({
     required this.inventarioTotalUnidades,
     required this.totalProductos,
     required this.totalAlmacenes,
     required this.capacidadTotal,
+    this.proximosCaducar = 0,
+    this.alertasStock = 0,
   });
 
   factory DashboardKpis.fromJson(Map<String, dynamic> j) => DashboardKpis(
@@ -25,6 +29,8 @@ class DashboardKpis {
         totalProductos: (j['total_productos'] as num?)?.toInt() ?? 0,
         totalAlmacenes: (j['total_almacenes'] as num?)?.toInt() ?? 0,
         capacidadTotal: (j['capacidad_total'] as num?)?.toInt() ?? 0,
+        proximosCaducar: (j['proximos_caducar'] as num?)?.toInt() ?? 0,
+        alertasStock: (j['alertas_stock'] as num?)?.toInt() ?? 0,
       );
 }
 

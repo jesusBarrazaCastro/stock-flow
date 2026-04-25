@@ -22,6 +22,7 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
   late bool _isEntry;
   int _quantity = 1;
   DateTime _selectedDate = DateTime.now();
+  DateTime? _selectedFechaCaducidad;
 
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
@@ -74,6 +75,28 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
+  Future<void> _selectFechaCaducidad() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedFechaCaducidad ?? now.add(const Duration(days: 30)),
+      firstDate: now,
+      lastDate: DateTime(now.year + 10),
+      helpText: 'Fecha de caducidad del lote',
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: Color(0xFFD97706),
+            onPrimary: Colors.white,
+            onSurface: AppTheme.textDark,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _selectedFechaCaducidad = picked);
+  }
+
   Future<void> _confirmar() async {
     final provider = context.read<MovimientoProvider>();
     final stock = context.read<StockProvider>();
@@ -105,6 +128,7 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
           ? null
           : _notesController.text.trim(),
       fecha: _selectedDate,
+      fechaCaducidad: _isEntry ? _selectedFechaCaducidad : null,
     );
 
     final error = await provider.registrar(req);
@@ -215,6 +239,14 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
                         const SizedBox(height: 24),
                       ],
 
+                      // ── Fecha de Caducidad (ENTRADA + producto expirable) ──
+                      if (_isEntry &&
+                          provider.productoSeleccionado?.tieneCaducidad == true) ...[
+                        _buildLabel('Fecha de Caducidad del Lote'),
+                        _buildFechaCaducidadField(),
+                        const SizedBox(height: 24),
+                      ],
+
                       // ── Notas ─────────────────────────────────
                       _buildLabel('Notas Adicionales'),
                       _buildNotesField(),
@@ -290,6 +322,7 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
                 _isEntry = false;
                 _priceController.clear();
                 _selectedProveedor = null;
+                _selectedFechaCaducidad = null;
               }),
             ),
           ),
@@ -683,6 +716,75 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
         height: 18,
         width: 18,
         child: CircularProgressIndicator(strokeWidth: 2),
+      ),
+    );
+  }
+
+  Widget _buildFechaCaducidadField() {
+    final hasDate = _selectedFechaCaducidad != null;
+    return GestureDetector(
+      onTap: _selectFechaCaducidad,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: hasDate
+              ? const Color(0xFFF59E0B).withValues(alpha: 0.08)
+              : Colors.white.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: hasDate
+                ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
+                : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasDate
+                      ? DateFormat('dd/MM/yyyy').format(_selectedFechaCaducidad!)
+                      : 'Sin fecha (opcional)',
+                  style: GoogleFonts.manrope(
+                    color: hasDate
+                        ? const Color(0xFFD97706)
+                        : AppTheme.textLight,
+                    fontSize: 15,
+                    fontWeight:
+                        hasDate ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                ),
+                if (!hasDate)
+                  Text(
+                    'Toca para seleccionar',
+                    style: GoogleFonts.manrope(
+                        fontSize: 11, color: AppTheme.textLight),
+                  ),
+              ],
+            ),
+            Row(
+              children: [
+                if (hasDate)
+                  GestureDetector(
+                    onTap: () =>
+                        setState(() => _selectedFechaCaducidad = null),
+                    child: const Icon(Icons.close,
+                        size: 16, color: Color(0xFFD97706)),
+                  ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.event_outlined,
+                  size: 18,
+                  color: hasDate
+                      ? const Color(0xFFD97706)
+                      : AppTheme.textLight,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

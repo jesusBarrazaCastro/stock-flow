@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:stock_flow/app_theme.dart';
 import '../providers/product_provider.dart';
@@ -194,6 +195,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           itemBuilder: (_, i) =>
                               _MovimientoTile(movimiento: p.movimientosRecientes[i]),
                         ),
+                      if (p.tieneCaducidad && p.lotesCaducidad.isNotEmpty) ...[
+                        const SizedBox(height: 28),
+                        Text(
+                          'Caducidades por Lote',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textDark,
+                            fontFamily: 'Noto Serif',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: p.lotesCaducidad.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (_, i) =>
+                              _LoteTile(lote: p.lotesCaducidad[i], unidadMedida: p.unidadMedida),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -486,6 +509,127 @@ class _DetailRow extends StatelessWidget {
             height: 24,
           ),
       ],
+    );
+  }
+}
+
+class _LoteTile extends StatelessWidget {
+  final LoteCaducidad lote;
+  final String unidadMedida;
+
+  const _LoteTile({required this.lote, required this.unidadMedida});
+
+  Color get _stateColor {
+    switch (lote.estado) {
+      case 'VENCIDO':
+        return AppTheme.error;
+      case 'PRONTO':
+        return const Color(0xFFD97706);
+      default:
+        return AppTheme.tertiary;
+    }
+  }
+
+  String get _stateLabel {
+    switch (lote.estado) {
+      case 'VENCIDO':
+        return 'VENCIDO';
+      case 'PRONTO':
+        return lote.diasRestantes != null
+            ? '${lote.diasRestantes} días'
+            : 'EXPIRA PRONTO';
+      default:
+        return 'OK';
+    }
+  }
+
+  IconData get _stateIcon {
+    switch (lote.estado) {
+      case 'VENCIDO':
+        return Icons.warning_rounded;
+      case 'PRONTO':
+        return Icons.access_time_rounded;
+      default:
+        return Icons.check_circle_outline_rounded;
+    }
+  }
+
+  String _formatDate(String? iso) {
+    if (iso == null) return '—';
+    try {
+      final d = DateTime.parse(iso);
+      return DateFormat('dd/MM/yyyy').format(d);
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _stateColor;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        boxShadow: AppTheme.cardShadow,
+        border: lote.estado != 'OK'
+            ? Border.all(color: color.withValues(alpha: 0.3))
+            : null,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            ),
+            child: Icon(_stateIcon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Lote #${lote.movimientoId} · ${lote.cantidad} $unidadMedida',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                Text(
+                  'Vence: ${_formatDate(lote.fechaCaducidad)}',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textMedium),
+                ),
+                if (lote.almacenNombre != null)
+                  Text(
+                    lote.almacenNombre!,
+                    style: TextStyle(fontSize: 11, color: AppTheme.textLight),
+                  ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+            ),
+            child: Text(
+              _stateLabel,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

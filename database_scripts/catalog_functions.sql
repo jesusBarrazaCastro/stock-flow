@@ -26,12 +26,17 @@ DECLARE
     v_producto    RECORD;
     v_movimientos JSONB;
     v_inventario  RECORD;
+    v_lotes       JSONB;
+    v_dias_alerta INT;
 BEGIN
 
     -- ── LIST ─────────────────────────────────────────────────────
     IF p_ac = 'list' THEN
 
         v_offset := (p_page - 1) * p_limit;
+
+        SELECT COALESCE(e.dias_alerta_caducidad, 30) INTO v_dias_alerta
+        FROM empresas e WHERE e.id = p_empresa_id;
 
         SELECT COUNT(*)
         INTO v_total
@@ -55,14 +60,33 @@ BEGIN
                 p.unidad_medida,
                 p.stock_minimo,
                 p.stock_maximo,
+                p.tiene_caducidad,
                 to_char(p.registro_fecha, 'DD Mon YYYY') AS registro_fecha,
                 c.id        AS categoria_id,
                 c.nombre    AS categoria_nombre,
                 c.color_hex AS categoria_color,
                 prov.id     AS proveedor_id,
                 prov.nombre AS proveedor_nombre,
-                COALESCE(vsp.stock_total, 0)       AS stock_total,
-                COALESCE(vsp.estado_stock, 'AGOTADO') AS estado_stock
+                COALESCE(vsp.stock_total, 0)          AS stock_total,
+                COALESCE(vsp.estado_stock, 'AGOTADO') AS estado_stock,
+                (
+                    SELECT MIN(mi.fecha_caducidad)
+                    FROM movimientos_inventario mi
+                    WHERE mi.producto_id       = p.id
+                      AND mi.tipo_movimiento   = 'ENTRADA'
+                      AND mi.registro_estado   = TRUE
+                      AND mi.fecha_caducidad   IS NOT NULL
+                      AND mi.fecha_caducidad   >= CURRENT_DATE
+                ) AS proxima_caducidad,
+                (
+                    SELECT MIN(mi.fecha_caducidad) <= CURRENT_DATE + v_dias_alerta
+                    FROM movimientos_inventario mi
+                    WHERE mi.producto_id       = p.id
+                      AND mi.tipo_movimiento   = 'ENTRADA'
+                      AND mi.registro_estado   = TRUE
+                      AND mi.fecha_caducidad   IS NOT NULL
+                      AND mi.fecha_caducidad   >= CURRENT_DATE
+                ) AS expira_pronto
             FROM productos p
             LEFT JOIN categorias c      ON c.id = p.categoria_id
             LEFT JOIN proveedores prov  ON prov.id = p.proveedor_id
@@ -92,18 +116,39 @@ BEGIN
     -- ── DETAIL ───────────────────────────────────────────────────
     ELSIF p_ac = 'detail' THEN
 
+        SELECT COALESCE(e.dias_alerta_caducidad, 30) INTO v_dias_alerta
+        FROM empresas e WHERE e.id = p_empresa_id;
+
         SELECT
             p.id, p.nombre, p.sku, p.descripcion,
             p.precio_unitario, p.imagen_url, p.unidad_medida,
-            p.stock_minimo, p.stock_maximo,
+            p.stock_minimo, p.stock_maximo, p.tiene_caducidad,
             to_char(p.registro_fecha, 'DD Mon YYYY') AS registro_fecha,
             c.id        AS categoria_id,
             c.nombre    AS categoria_nombre,
             c.color_hex AS categoria_color,
             prov.id     AS proveedor_id,
             prov.nombre AS proveedor_nombre,
-            COALESCE(vsp.stock_total, 0)       AS stock_total,
-            COALESCE(vsp.estado_stock, 'AGOTADO') AS estado_stock
+            COALESCE(vsp.stock_total, 0)          AS stock_total,
+            COALESCE(vsp.estado_stock, 'AGOTADO') AS estado_stock,
+            (
+                SELECT MIN(mi.fecha_caducidad)
+                FROM movimientos_inventario mi
+                WHERE mi.producto_id     = p.id
+                  AND mi.tipo_movimiento = 'ENTRADA'
+                  AND mi.registro_estado = TRUE
+                  AND mi.fecha_caducidad IS NOT NULL
+                  AND mi.fecha_caducidad >= CURRENT_DATE
+            ) AS proxima_caducidad,
+            (
+                SELECT MIN(mi.fecha_caducidad) <= CURRENT_DATE + v_dias_alerta
+                FROM movimientos_inventario mi
+                WHERE mi.producto_id     = p.id
+                  AND mi.tipo_movimiento = 'ENTRADA'
+                  AND mi.registro_estado = TRUE
+                  AND mi.fecha_caducidad IS NOT NULL
+                  AND mi.fecha_caducidad >= CURRENT_DATE
+            ) AS expira_pronto
         INTO v_producto
         FROM productos p
         LEFT JOIN categorias c      ON c.id = p.categoria_id
@@ -138,6 +183,30 @@ BEGIN
             LIMIT 5
         ) m;
 
+        -- Lotes con caducidad (todas las ENTRADAs con fecha_caducidad registradas)
+        SELECT jsonb_agg(row_to_json(l)::jsonb ORDER BY l.fecha_caducidad ASC)
+        INTO v_lotes
+        FROM (
+            SELECT
+                mi.id                AS movimiento_id,
+                mi.cantidad,
+                mi.fecha_caducidad,
+                (mi.fecha_caducidad - CURRENT_DATE)  AS dias_restantes,
+                CASE
+                    WHEN mi.fecha_caducidad < CURRENT_DATE              THEN 'VENCIDO'
+                    WHEN mi.fecha_caducidad <= CURRENT_DATE + v_dias_alerta THEN 'PRONTO'
+                    ELSE 'OK'
+                END                  AS estado,
+                al.nombre            AS almacen_nombre
+            FROM movimientos_inventario mi
+            LEFT JOIN almacenes al ON al.id = mi.almacen_id
+            WHERE mi.producto_id     = p_producto_id
+              AND mi.tipo_movimiento = 'ENTRADA'
+              AND mi.registro_estado = TRUE
+              AND mi.fecha_caducidad IS NOT NULL
+            ORDER BY mi.fecha_caducidad ASC
+        ) l;
+
         SELECT i.almacen_id, i.ubicacion_fisica, al.nombre AS almacen_nombre
         INTO v_inventario
         FROM inventario i
@@ -157,6 +226,9 @@ BEGIN
             'unidad_medida',       v_producto.unidad_medida,
             'stock_minimo',        v_producto.stock_minimo,
             'stock_maximo',        v_producto.stock_maximo,
+            'tiene_caducidad',     v_producto.tiene_caducidad,
+            'proxima_caducidad',   v_producto.proxima_caducidad,
+            'expira_pronto',       COALESCE(v_producto.expira_pronto, FALSE),
             'registro_fecha',      v_producto.registro_fecha,
             'categoria_id',        v_producto.categoria_id,
             'categoria_nombre',    v_producto.categoria_nombre,
@@ -168,7 +240,8 @@ BEGIN
             'almacen_id',          v_inventario.almacen_id,
             'ubicacion_fisica',    v_inventario.ubicacion_fisica,
             'almacen_nombre',      v_inventario.almacen_nombre,
-            'movimientos_recientes', COALESCE(v_movimientos, '[]'::jsonb)
+            'movimientos_recientes', COALESCE(v_movimientos, '[]'::jsonb),
+            'lotes_caducidad',     COALESCE(v_lotes, '[]'::jsonb)
         );
 
     -- ── CATEGORIES ───────────────────────────────────────────────
@@ -217,7 +290,8 @@ CREATE OR REPLACE FUNCTION public.write_productos(
     p_almacen_id       INT             DEFAULT NULL,
     p_ubicacion_fisica TEXT            DEFAULT NULL,
     p_cantidad_nueva   INT             DEFAULT NULL,
-    p_usuario_id       INT             DEFAULT NULL
+    p_usuario_id       INT             DEFAULT NULL,
+    p_tiene_caducidad  BOOLEAN         DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -252,7 +326,7 @@ BEGIN
         INSERT INTO productos (
             empresa_id, nombre, sku, descripcion, precio_unitario,
             categoria_id, unidad_medida, stock_minimo, stock_maximo,
-            imagen_url, registro_usuario
+            imagen_url, tiene_caducidad, registro_usuario
         ) VALUES (
             p_empresa_id,
             TRIM(p_nombre),
@@ -264,6 +338,7 @@ BEGIN
             COALESCE(p_stock_minimo, 0),
             p_stock_maximo,
             p_imagen_url,
+            COALESCE(p_tiene_caducidad, FALSE),
             p_usuario_id
         )
         RETURNING id INTO v_nuevo_id;
@@ -297,7 +372,8 @@ BEGIN
             unidad_medida   = COALESCE(NULLIF(p_unidad_medida,''), unidad_medida),
             stock_minimo    = COALESCE(p_stock_minimo,             stock_minimo),
             stock_maximo    = COALESCE(p_stock_maximo,             stock_maximo),
-            imagen_url      = COALESCE(p_imagen_url,               imagen_url)
+            imagen_url      = COALESCE(p_imagen_url,               imagen_url),
+            tiene_caducidad = COALESCE(p_tiene_caducidad,          tiene_caducidad)
         WHERE id = p_producto_id;
 
         IF p_almacen_id IS NOT NULL AND p_ubicacion_fisica IS NOT NULL THEN
@@ -338,6 +414,67 @@ BEGIN
         END IF;
 
         RETURN jsonb_build_object('ok', true, 'id', p_producto_id);
+
+    END IF;
+
+    RETURN jsonb_build_object('error', 'Acción no reconocida: ' || COALESCE(p_ac, 'NULL'));
+END;
+$$;
+
+
+-- =============================================================
+-- FUNCIÓN: public.read_caducidades
+-- Lista lotes próximos a vencer de toda la empresa.
+-- Parámetro AC (acción):
+--   'list' → Todos los lotes con fecha_caducidad registrada, ordenados por fecha
+-- =============================================================
+CREATE OR REPLACE FUNCTION public.read_caducidades(
+    p_ac         TEXT,
+    p_empresa_id INT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_items       JSONB;
+    v_dias_alerta INT;
+BEGIN
+
+    IF p_ac = 'list' THEN
+
+        SELECT COALESCE(e.dias_alerta_caducidad, 30) INTO v_dias_alerta
+        FROM empresas e WHERE e.id = p_empresa_id;
+
+        SELECT jsonb_agg(row_to_json(t)::jsonb ORDER BY t.fecha_caducidad ASC)
+        INTO v_items
+        FROM (
+            SELECT
+                mi.id                                           AS movimiento_id,
+                mi.producto_id,
+                p.nombre                                        AS producto_nombre,
+                p.unidad_medida,
+                mi.cantidad,
+                to_char(mi.fecha_caducidad, 'YYYY-MM-DD')       AS fecha_caducidad,
+                (mi.fecha_caducidad - CURRENT_DATE)             AS dias_restantes,
+                CASE
+                    WHEN mi.fecha_caducidad < CURRENT_DATE               THEN 'VENCIDO'
+                    WHEN mi.fecha_caducidad <= CURRENT_DATE + v_dias_alerta THEN 'PRONTO'
+                    ELSE 'OK'
+                END                                             AS estado
+            FROM movimientos_inventario mi
+            JOIN productos p ON p.id = mi.producto_id
+            WHERE p.empresa_id       = p_empresa_id
+              AND p.registro_estado  = TRUE
+              AND mi.tipo_movimiento = 'ENTRADA'
+              AND mi.registro_estado = TRUE
+              AND mi.fecha_caducidad IS NOT NULL
+              AND mi.fecha_caducidad >= CURRENT_DATE - INTERVAL '1 day'
+            ORDER BY mi.fecha_caducidad ASC
+        ) t;
+
+        RETURN jsonb_build_object(
+            'items', COALESCE(v_items, '[]'::jsonb)
+        );
 
     END IF;
 

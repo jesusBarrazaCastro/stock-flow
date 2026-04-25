@@ -2,7 +2,7 @@
 -- FUNCIÓN: public.read_dashboard
 -- Maneja todas las lecturas del dashboard principal.
 -- Acciones (p_ac):
---   'kpis'      → KPIs de inventario: total unidades, productos, almacenes, capacidad
+--   'kpis'      → KPIs de inventario: total unidades, productos, almacenes, capacidad, proximos_caducar, alertas_stock
 --   'actividad' → Últimos p_limit movimientos de la empresa
 --   'insights'  → Producto top + variación semanal + totales por día (7 días)
 -- =============================================================================
@@ -23,10 +23,14 @@ DECLARE
     v_semana_anterior     BIGINT;
     v_pct_cambio          NUMERIC(10, 2);
     v_dias                JSONB;
+    v_dias_alerta         INT;
 BEGIN
 
     -- ── KPIS ──────────────────────────────────────────────────────────────
     IF p_ac = 'kpis' THEN
+
+        SELECT COALESCE(e.dias_alerta_caducidad, 30) INTO v_dias_alerta
+        FROM empresas e WHERE e.id = p_empresa_id;
 
         SELECT jsonb_build_object(
             'inventario_total_unidades', (
@@ -56,6 +60,25 @@ BEGIN
                 WHERE empresa_id      = p_empresa_id
                   AND registro_estado = TRUE
                   AND is_active        = TRUE
+            ),
+            'proximos_caducar', (
+                SELECT COUNT(DISTINCT mi.producto_id)
+                FROM movimientos_inventario mi
+                JOIN productos p ON p.id = mi.producto_id
+                WHERE p.empresa_id       = p_empresa_id
+                  AND p.registro_estado  = TRUE
+                  AND mi.tipo_movimiento = 'ENTRADA'
+                  AND mi.registro_estado = TRUE
+                  AND mi.fecha_caducidad IS NOT NULL
+                  AND mi.fecha_caducidad BETWEEN CURRENT_DATE AND CURRENT_DATE + v_dias_alerta
+            ),
+            'alertas_stock', (
+                SELECT COUNT(*)
+                FROM v_stock_productos vsp
+                JOIN productos p ON p.id = vsp.producto_id
+                WHERE p.empresa_id      = p_empresa_id
+                  AND p.registro_estado = TRUE
+                  AND vsp.estado_stock IN ('AGOTADO', 'STOCK_BAJO')
             )
         ) INTO v_result;
 
@@ -63,7 +86,9 @@ BEGIN
             'inventario_total_unidades', 0,
             'total_productos',           0,
             'total_almacenes',           0,
-            'capacidad_total',           0
+            'capacidad_total',           0,
+            'proximos_caducar',          0,
+            'alertas_stock',             0
         ));
 
     -- ── ACTIVIDAD ─────────────────────────────────────────────────────────

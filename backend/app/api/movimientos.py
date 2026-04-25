@@ -53,6 +53,7 @@ def registrar_movimiento(
         body.proveedor_id,
         body.notas,
         body.fecha,
+        body.fecha_caducidad,
     )
 
     if "error" in data:

@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List, Literal, Any
-from datetime import datetime
+from datetime import datetime, date
 
 class UsuarioBase(BaseModel):
     nombre: str
@@ -101,6 +101,9 @@ class CatalogoProductoItem(BaseModel):
     proveedor_nombre: Optional[str] = None
     stock_total: int = 0
     estado_stock: str = 'AGOTADO'
+    tiene_caducidad: bool = False
+    proxima_caducidad: Optional[str] = None
+    expira_pronto: Optional[bool] = None
 
 class CatalogoPaginado(BaseModel):
     items: List[CatalogoProductoItem]
@@ -109,11 +112,21 @@ class CatalogoPaginado(BaseModel):
     limit: int
     pages: float
 
+class LoteCaducidad(BaseModel):
+    movimiento_id: int
+    cantidad: int
+    fecha_caducidad: Optional[str] = None
+    dias_restantes: Optional[int] = None
+    estado: str = 'OK'
+    almacen_nombre: Optional[str] = None
+
+
 class ProductoDetalle(CatalogoProductoItem):
     ubicacion_fisica: Optional[str] = None
     almacen_id: Optional[int] = None
     almacen_nombre: Optional[str] = None
     movimientos_recientes: List[MovimientoReciente] = []
+    lotes_caducidad: List[LoteCaducidad] = []
 
 class ProductoUpdate(BaseModel):
     nombre: Optional[str] = None
@@ -129,6 +142,7 @@ class ProductoUpdate(BaseModel):
     almacen_id: Optional[int] = None
     ubicacion_fisica: Optional[str] = None
     cantidad_nueva: Optional[int] = None
+    tiene_caducidad: Optional[bool] = None
 
 class CategoriaItem(BaseModel):
     id: int
@@ -149,6 +163,7 @@ class ProductoCatalogCreate(BaseModel):
     stock_maximo: Optional[int] = None
     imagen_url: Optional[str] = None
     ubicacion_fisica: Optional[str] = None
+    tiene_caducidad: bool = False
 
 
 # ── Proveedor schemas ─────────────────────────────────────────────────────
@@ -250,6 +265,7 @@ class MovimientoRegistrar(BaseModel):
     proveedor_id: Optional[int] = None
     notas: Optional[str] = None
     fecha: Optional[datetime] = None
+    fecha_caducidad: Optional[date] = None
 
 
 class MovimientoResponse(BaseModel):
@@ -272,11 +288,28 @@ class AlmacenesList(BaseModel):
 
 # ── Dashboard schemas ────────────────────────────────────────────────────────
 
+class CaducidadLoteItem(BaseModel):
+    movimiento_id: int
+    producto_id: int
+    producto_nombre: str
+    unidad_medida: str = 'unidad'
+    cantidad: int
+    fecha_caducidad: Optional[str] = None
+    dias_restantes: Optional[int] = None
+    estado: str = 'OK'
+
+
+class CaducidadListResponse(BaseModel):
+    items: List[CaducidadLoteItem]
+
+
 class DashboardKpisResponse(BaseModel):
     inventario_total_unidades: int = 0
     total_productos: int = 0
     total_almacenes: int = 0
     capacidad_total: int = 0
+    proximos_caducar: int = 0
+    alertas_stock: int = 0
 
 
 class DashboardActividadItem(BaseModel):

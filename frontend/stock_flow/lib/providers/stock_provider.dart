@@ -13,7 +13,7 @@ class StockProvider extends ChangeNotifier {
 
   // ── Filtros ───────────────────────────────────────────────────
   String? _searchQuery;
-  String? _estadoFiltro; // null | 'AGOTADO' | 'STOCK_BAJO' | 'SUFICIENTE' | 'EXCESO'
+  String? _estadoFiltro; // null | 'AGOTADO' | 'STOCK_BAJO' | 'SUFICIENTE' | 'EXCESO' | 'EXPIRA_PRONTO'
   int? _categoriaFiltroId;
   String? _sortOrder;
   RangeValues? _precioRango;
@@ -52,7 +52,11 @@ class StockProvider extends ChangeNotifier {
     var result = List<StockItem>.from(_allItems);
 
     if (_estadoFiltro != null) {
-      result = result.where((i) => i.estadoStock == _estadoFiltro).toList();
+      if (_estadoFiltro == 'EXPIRA_PRONTO') {
+        result = result.where((i) => i.expiraProto == true).toList();
+      } else {
+        result = result.where((i) => i.estadoStock == _estadoFiltro).toList();
+      }
     }
 
     if (_precioRango != null) {

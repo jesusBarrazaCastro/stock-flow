@@ -36,6 +36,7 @@ class MovimientoRegistroRequest {
   final int? proveedorId;
   final String? notas;
   final DateTime? fecha;
+  final DateTime? fechaCaducidad;
 
   const MovimientoRegistroRequest({
     required this.productoId,
@@ -46,6 +47,7 @@ class MovimientoRegistroRequest {
     this.proveedorId,
     this.notas,
     this.fecha,
+    this.fechaCaducidad,
   });
 
   Map<String, dynamic> toJson() => {
@@ -57,6 +59,11 @@ class MovimientoRegistroRequest {
         if (proveedorId != null) 'proveedor_id': proveedorId,
         if (notas != null && notas!.isNotEmpty) 'notas': notas,
         if (fecha != null) 'fecha': fecha!.toIso8601String(),
+        if (fechaCaducidad != null)
+          'fecha_caducidad':
+              '${fechaCaducidad!.year.toString().padLeft(4, '0')}-'
+              '${fechaCaducidad!.month.toString().padLeft(2, '0')}-'
+              '${fechaCaducidad!.day.toString().padLeft(2, '0')}',
       };
 }
 

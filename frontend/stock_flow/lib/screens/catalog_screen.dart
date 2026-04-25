@@ -432,6 +432,14 @@ class _ProductCard extends StatelessWidget {
     }
   }
 
+  String _formatDate(String isoDate) {
+    try {
+      final parts = isoDate.split('-');
+      if (parts.length >= 3) return '${parts[2]}/${parts[1]}';
+    } catch (_) {}
+    return isoDate;
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -464,23 +472,50 @@ class _ProductCard extends StatelessWidget {
                 Positioned(
                   top: 12,
                   right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: _badgeColor,
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.radiusFull),
-                    ),
-                    child: Text(
-                      _badgeLabel,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: _badgeColor,
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusFull),
+                        ),
+                        child: Text(
+                          _badgeLabel,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (producto.expiraProto == true) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD97706),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusFull),
+                          ),
+                          child: Text(
+                            producto.proximaCaducidad != null
+                                ? '⚠ Vence ${_formatDate(producto.proximaCaducidad!)}'
+                                : '⚠ EXPIRA PRONTO',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],

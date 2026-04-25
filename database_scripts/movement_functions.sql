@@ -8,17 +8,18 @@
 --       el primer almacén activo de la empresa.
 -- =============================================================
 CREATE OR REPLACE FUNCTION public.write_movimientos(
-    p_ac             TEXT,
-    p_empresa_id     INT,
-    p_producto_id    INT,
-    p_almacen_id     INT            DEFAULT NULL,
-    p_usuario_id     INT            DEFAULT NULL,
-    p_tipo           TEXT           DEFAULT 'ENTRADA',
-    p_cantidad       INT            DEFAULT NULL,
-    p_precio         NUMERIC(12,2)  DEFAULT NULL,
-    p_proveedor_id   INT            DEFAULT NULL,
-    p_notas          TEXT           DEFAULT NULL,
-    p_fecha          TIMESTAMP      DEFAULT NULL
+    p_ac              TEXT,
+    p_empresa_id      INT,
+    p_producto_id     INT,
+    p_almacen_id      INT            DEFAULT NULL,
+    p_usuario_id      INT            DEFAULT NULL,
+    p_tipo            TEXT           DEFAULT 'ENTRADA',
+    p_cantidad        INT            DEFAULT NULL,
+    p_precio          NUMERIC(12,2)  DEFAULT NULL,
+    p_proveedor_id    INT            DEFAULT NULL,
+    p_notas           TEXT           DEFAULT NULL,
+    p_fecha           TIMESTAMP      DEFAULT NULL,
+    p_fecha_caducidad DATE           DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -112,11 +113,13 @@ BEGIN
         INSERT INTO movimientos_inventario (
             producto_id, almacen_id, usuario_id, proveedor_id,
             tipo_movimiento, cantidad, precio_unitario,
-            fecha_movimiento, notas, metodo_registro, registro_usuario
+            fecha_movimiento, notas, metodo_registro, fecha_caducidad, registro_usuario
         ) VALUES (
             p_producto_id, v_almacen_id, p_usuario_id, p_proveedor_id,
             p_tipo, p_cantidad, p_precio,
-            v_fecha_uso, p_notas, 'MANUAL', p_usuario_id
+            v_fecha_uso, p_notas, 'MANUAL',
+            CASE WHEN p_tipo = 'ENTRADA' THEN p_fecha_caducidad ELSE NULL END,
+            p_usuario_id
         )
         RETURNING id INTO v_movimiento_id;
 

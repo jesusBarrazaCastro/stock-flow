@@ -27,6 +27,7 @@ CREATE TABLE empresas (
     plan_suscripcion    VARCHAR(50)     NOT NULL DEFAULT 'FREE',  -- FREE, PRO, ENTERPRISE
     limite_almacenes    INTEGER         DEFAULT 1,
     fecha_registro_empresa TIMESTAMP   NOT NULL DEFAULT NOW(),
+    dias_alerta_caducidad  INT          NOT NULL DEFAULT 30,
 
     -- Columnas de auditoría
     registro_fecha      TIMESTAMP       NOT NULL DEFAULT NOW(),
@@ -207,6 +208,7 @@ CREATE TABLE productos (
     -- Niveles de stock
     stock_minimo        INTEGER         DEFAULT 0,          -- Umbral para "Stock Bajo"
     stock_maximo        INTEGER,                            -- Umbral para "Exceso"
+    tiene_caducidad     BOOLEAN         NOT NULL DEFAULT FALSE,
 
     -- Columnas de auditoría
     registro_fecha      TIMESTAMP       NOT NULL DEFAULT NOW(),
@@ -276,6 +278,7 @@ CREATE TABLE movimientos_inventario (
     -- Referencia al documento escaneado (cámara) o transcripción (voz)
     documento_url       TEXT,
     transcripcion_texto TEXT,
+    fecha_caducidad     DATE,
 
     -- Columnas de auditoría
     registro_fecha      TIMESTAMP       NOT NULL DEFAULT NOW(),

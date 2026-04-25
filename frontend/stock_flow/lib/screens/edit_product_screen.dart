@@ -29,6 +29,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   final _ubicacionCtrl = TextEditingController();
   String _unidadMedida = 'unidad';
   int? _selectedCategoriaId;
+  bool _tieneCaducidad = false;
 
   bool _isSaving = false;
   bool _initialized = false;
@@ -72,6 +73,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     _stockMaxCtrl.text = p.stockMaximo != null ? '${p.stockMaximo}' : '';
     _ubicacionCtrl.text = p.ubicacionFisica ?? '';
     _selectedCategoriaId = p.categoriaId;
+    _tieneCaducidad = p.tieneCaducidad;
     _initialized = true;
   }
 
@@ -99,6 +101,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       if (_ubicacionCtrl.text.trim().isNotEmpty)
         'ubicacion_fisica': _ubicacionCtrl.text.trim(),
       if (_selectedCategoriaId != null) 'categoria_id': _selectedCategoriaId,
+      'tiene_caducidad': _tieneCaducidad,
     };
     final error = await context.read<ProductProvider>().createProducto(data);
     if (!mounted) return;
@@ -151,6 +154,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
     if (_selectedCategoriaId != original.categoriaId) {
       data['categoria_id'] = _selectedCategoriaId;
+    }
+
+    if (_tieneCaducidad != original.tieneCaducidad) {
+      data['tiene_caducidad'] = _tieneCaducidad;
     }
 
     if (data.isEmpty) {
@@ -281,6 +288,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
         _buildFieldLabel('CATEGORÍA'),
         const SizedBox(height: 6),
         _buildCategoriaDropdown(categorias),
+
+        const SizedBox(height: 20),
+        _buildCaducidadToggle(),
 
         const SizedBox(height: 28),
         _buildSectionHeader('Precio y Unidad'),
@@ -482,6 +492,25 @@ class _EditProductScreenState extends State<EditProductScreen> {
     );
   }
 
+  void _onCategoriaChanged(int? categoriaId, List<CategoriaItem> categorias) {
+    setState(() {
+      _selectedCategoriaId = categoriaId;
+      if (categoriaId != null) {
+        final cat = categorias.firstWhere(
+          (c) => c.id == categoriaId,
+          orElse: () => const CategoriaItem(id: -1, nombre: ''),
+        );
+        final nombre = cat.nombre.toLowerCase();
+        if (nombre.contains('aliment') || nombre.contains('bebida') ||
+            nombre.contains('pereceder') || nombre.contains('lácteo') ||
+            nombre.contains('lacteo') || nombre.contains('carne') ||
+            nombre.contains('fruta') || nombre.contains('verdura')) {
+          _tieneCaducidad = true;
+        }
+      }
+    });
+  }
+
   Widget _buildCategoriaDropdown(List<CategoriaItem> categorias) {
     return Container(
       decoration: BoxDecoration(
@@ -512,8 +541,53 @@ class _EditProductScreenState extends State<EditProductScreen> {
               ),
             ),
           ],
-          onChanged: (v) => setState(() => _selectedCategoriaId = v),
+          onChanged: (v) => _onCategoriaChanged(v, categorias),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCaducidadToggle() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: AppTheme.divider),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.event_available_outlined,
+            size: 20,
+            color: _tieneCaducidad ? AppTheme.primary : AppTheme.textLight,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '¿Este producto expira?',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                Text(
+                  'Se pedirá fecha de caducidad en cada entrada',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textLight),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: _tieneCaducidad,
+            onChanged: (v) => setState(() => _tieneCaducidad = v),
+            activeColor: AppTheme.primary,
+          ),
+        ],
       ),
     );
   }
