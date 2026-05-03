@@ -43,6 +43,36 @@ class LoteCaducidad {
       );
 }
 
+class LoteDisponible {
+  final int movimientoId;
+  final String? fechaMovimiento;
+  final String? fechaCaducidad;
+  final int cantidadRestante;
+  final int? diasRestantes;
+  final String estado;
+  final String? almacenNombre;
+
+  const LoteDisponible({
+    required this.movimientoId,
+    this.fechaMovimiento,
+    this.fechaCaducidad,
+    required this.cantidadRestante,
+    this.diasRestantes,
+    required this.estado,
+    this.almacenNombre,
+  });
+
+  factory LoteDisponible.fromJson(Map<String, dynamic> j) => LoteDisponible(
+        movimientoId: (j['movimiento_id'] as num).toInt(),
+        fechaMovimiento: j['fecha_movimiento']?.toString(),
+        fechaCaducidad: j['fecha_caducidad']?.toString(),
+        cantidadRestante: (j['cantidad_restante'] as num).toInt(),
+        diasRestantes: (j['dias_restantes'] as num?)?.toInt(),
+        estado: j['estado'] ?? 'OK',
+        almacenNombre: j['almacen_nombre'],
+      );
+}
+
 class CaducidadLoteItem {
   final int movimientoId;
   final int productoId;
@@ -359,6 +389,23 @@ class ProductService {
       }
     } catch (e) {
       debugPrint('[ProductService.createProducto] $e');
+      rethrow;
+    }
+  }
+
+  Future<List<LoteDisponible>> getLotesDisponibles(int productoId) async {
+    try {
+      final response = await _api.get('/productos/$productoId/lotes-disponibles');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return (data['items'] as List<dynamic>)
+            .map((e) => LoteDisponible.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      final body = jsonDecode(response.body) as Map<String, dynamic>?;
+      throw Exception(body?['detail'] ?? 'Error ${response.statusCode}');
+    } catch (e) {
+      debugPrint('[ProductService.getLotesDisponibles] $e');
       rethrow;
     }
   }

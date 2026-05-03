@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import '../services/movimiento_service.dart';
+import '../services/product_service.dart';
 import '../services/stock_service.dart';
 import '../services/supplier_service.dart';
 
 class MovimientoProvider extends ChangeNotifier {
   final MovimientoService _service = MovimientoService();
+  final ProductService _productService = ProductService();
   final StockService _stockService = StockService();
   final SupplierService _supplierService = SupplierService();
 
@@ -24,6 +26,11 @@ class MovimientoProvider extends ChangeNotifier {
   // ── Producto seleccionado ─────────────────────────────────────
   StockItem? _productoSeleccionado;
 
+  // ── Lotes disponibles para SALIDA ────────────────────────────
+  List<LoteDisponible> _lotesDisponibles = [];
+  bool _isLoadingLotes = false;
+  LoteDisponible? _loteSeleccionado;
+
   // ── Getters públicos ──────────────────────────────────────────
   bool get isSubmitting => _isSubmitting;
   bool get isLoadingFormData => _isLoadingFormData;
@@ -33,6 +40,9 @@ class MovimientoProvider extends ChangeNotifier {
   List<ProveedorItem> get proveedores => _proveedores;
   List<StockItem> get productosSearch => _productosSearch;
   StockItem? get productoSeleccionado => _productoSeleccionado;
+  List<LoteDisponible> get lotesDisponibles => _lotesDisponibles;
+  bool get isLoadingLotes => _isLoadingLotes;
+  LoteDisponible? get loteSeleccionado => _loteSeleccionado;
 
   /// Si la empresa tiene solo un almacén, lo devuelve para autoselección.
   AlmacenItem? get almacenAutoselect =>
@@ -107,7 +117,38 @@ class MovimientoProvider extends ChangeNotifier {
   void clearProducto() {
     _productoSeleccionado = null;
     _productosSearch = [];
+    clearLotes();
     notifyListeners();
+  }
+
+  // ── Lotes disponibles ─────────────────────────────────────────
+
+  Future<void> loadLotesDisponibles(int productoId) async {
+    _isLoadingLotes = true;
+    _lotesDisponibles = [];
+    _loteSeleccionado = null;
+    notifyListeners();
+    try {
+      _lotesDisponibles = await _productService.getLotesDisponibles(productoId);
+      if (_lotesDisponibles.isNotEmpty) {
+        _loteSeleccionado = _lotesDisponibles.first;
+      }
+    } catch (e) {
+      debugPrint('[MovimientoProvider.loadLotesDisponibles] $e');
+    } finally {
+      _isLoadingLotes = false;
+      notifyListeners();
+    }
+  }
+
+  void seleccionarLote(LoteDisponible lote) {
+    _loteSeleccionado = lote;
+    notifyListeners();
+  }
+
+  void clearLotes() {
+    _lotesDisponibles = [];
+    _loteSeleccionado = null;
   }
 
   void clearSearch() {
@@ -143,6 +184,7 @@ class MovimientoProvider extends ChangeNotifier {
     _productosSearch = [];
     _error = null;
     _isSubmitting = false;
+    clearLotes();
     notifyListeners();
   }
 }

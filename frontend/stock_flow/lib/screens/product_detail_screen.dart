@@ -513,14 +513,21 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-class _LoteTile extends StatelessWidget {
+class _LoteTile extends StatefulWidget {
   final LoteCaducidad lote;
   final String unidadMedida;
 
   const _LoteTile({required this.lote, required this.unidadMedida});
 
+  @override
+  State<_LoteTile> createState() => _LoteTileState();
+}
+
+class _LoteTileState extends State<_LoteTile> {
+  bool _isUpdating = false;
+
   Color get _stateColor {
-    switch (lote.estado) {
+    switch (widget.lote.estado) {
       case 'VENCIDO':
         return AppTheme.error;
       case 'PRONTO':
@@ -531,12 +538,12 @@ class _LoteTile extends StatelessWidget {
   }
 
   String get _stateLabel {
-    switch (lote.estado) {
+    switch (widget.lote.estado) {
       case 'VENCIDO':
         return 'VENCIDO';
       case 'PRONTO':
-        return lote.diasRestantes != null
-            ? '${lote.diasRestantes} días'
+        return widget.lote.diasRestantes != null
+            ? '${widget.lote.diasRestantes} días'
             : 'EXPIRA PRONTO';
       default:
         return 'OK';
@@ -544,7 +551,7 @@ class _LoteTile extends StatelessWidget {
   }
 
   IconData get _stateIcon {
-    switch (lote.estado) {
+    switch (widget.lote.estado) {
       case 'VENCIDO':
         return Icons.warning_rounded;
       case 'PRONTO':
@@ -564,6 +571,49 @@ class _LoteTile extends StatelessWidget {
     }
   }
 
+  Future<void> _showEditDateDialog() async {
+    DateTime initial;
+    try {
+      initial = widget.lote.fechaCaducidad != null
+          ? DateTime.parse(widget.lote.fechaCaducidad!)
+          : DateTime.now().add(const Duration(days: 30));
+    } catch (_) {
+      initial = DateTime.now().add(const Duration(days: 30));
+    }
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(DateTime.now()) ? DateTime.now() : initial,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: AppTheme.primaryDark,
+            onPrimary: Colors.white,
+            surface: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+
+    if (picked == null || !mounted) return;
+
+    setState(() => _isUpdating = true);
+    final error = await context
+        .read<ProductProvider>()
+        .updateCaducidad(widget.lote.movimientoId, picked);
+    if (!mounted) return;
+    setState(() => _isUpdating = false);
+
+    if (error == null) {
+      MsgtUtil.showSuccess(context, 'Fecha de caducidad actualizada');
+    } else {
+      MsgtUtil.showError(context, error);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = _stateColor;
@@ -573,7 +623,7 @@ class _LoteTile extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         boxShadow: AppTheme.cardShadow,
-        border: lote.estado != 'OK'
+        border: widget.lote.estado != 'OK'
             ? Border.all(color: color.withValues(alpha: 0.3))
             : null,
       ),
@@ -594,7 +644,7 @@ class _LoteTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Lote #${lote.movimientoId} · ${lote.cantidad} $unidadMedida',
+                  'Lote #${widget.lote.movimientoId} · ${widget.lote.cantidad} ${widget.unidadMedida} restantes',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -602,17 +652,18 @@ class _LoteTile extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Vence: ${_formatDate(lote.fechaCaducidad)}',
+                  'Vence: ${_formatDate(widget.lote.fechaCaducidad)}',
                   style: TextStyle(fontSize: 11, color: AppTheme.textMedium),
                 ),
-                if (lote.almacenNombre != null)
+                if (widget.lote.almacenNombre != null)
                   Text(
-                    lote.almacenNombre!,
+                    widget.lote.almacenNombre!,
                     style: TextStyle(fontSize: 11, color: AppTheme.textLight),
                   ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -626,6 +677,31 @@ class _LoteTile extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: color,
               ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _isUpdating ? null : _showEditDateDialog,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryDark.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              ),
+              child: _isUpdating
+                  ? SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primaryDark,
+                      ),
+                    )
+                  : Icon(
+                      Icons.edit_calendar_outlined,
+                      size: 16,
+                      color: AppTheme.primaryDark,
+                    ),
             ),
           ),
         ],

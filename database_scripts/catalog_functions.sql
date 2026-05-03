@@ -183,13 +183,19 @@ BEGIN
             LIMIT 5
         ) m;
 
-        -- Lotes con caducidad (todas las ENTRADAs con fecha_caducidad registradas)
+        -- Lotes con caducidad: muestra cantidad restante (ENTRADA - SALIDAs atribuidas)
         SELECT jsonb_agg(row_to_json(l)::jsonb ORDER BY l.fecha_caducidad ASC)
         INTO v_lotes
         FROM (
             SELECT
                 mi.id                AS movimiento_id,
-                mi.cantidad,
+                (mi.cantidad - COALESCE(
+                    (SELECT SUM(s.cantidad)
+                       FROM movimientos_inventario s
+                      WHERE s.lote_entrada_id = mi.id
+                        AND s.registro_estado = TRUE),
+                    0
+                ))                   AS cantidad,
                 mi.fecha_caducidad,
                 (mi.fecha_caducidad - CURRENT_DATE)  AS dias_restantes,
                 CASE
@@ -204,6 +210,13 @@ BEGIN
               AND mi.tipo_movimiento = 'ENTRADA'
               AND mi.registro_estado = TRUE
               AND mi.fecha_caducidad IS NOT NULL
+              AND (mi.cantidad - COALESCE(
+                    (SELECT SUM(s.cantidad)
+                       FROM movimientos_inventario s
+                      WHERE s.lote_entrada_id = mi.id
+                        AND s.registro_estado = TRUE),
+                    0
+                  )) > 0
             ORDER BY mi.fecha_caducidad ASC
         ) l;
 
@@ -242,6 +255,48 @@ BEGIN
             'almacen_nombre',      v_inventario.almacen_nombre,
             'movimientos_recientes', COALESCE(v_movimientos, '[]'::jsonb),
             'lotes_caducidad',     COALESCE(v_lotes, '[]'::jsonb)
+        );
+
+    -- ── LOTES_DISPONIBLES ────────────────────────────────────────
+    ELSIF p_ac = 'lotes_disponibles' THEN
+
+        SELECT COALESCE(e.dias_alerta_caducidad, 30) INTO v_dias_alerta
+        FROM empresas e WHERE e.id = p_empresa_id;
+
+        SELECT jsonb_agg(row_to_json(l)::jsonb ORDER BY l.fecha_movimiento ASC)
+        INTO v_items
+        FROM (
+            SELECT
+                mi.id                AS movimiento_id,
+                to_char(mi.fecha_movimiento, 'YYYY-MM-DD"T"HH24:MI:SS') AS fecha_movimiento,
+                mi.fecha_caducidad,
+                (mi.cantidad - COALESCE(SUM(s.cantidad), 0)) AS cantidad_restante,
+                (mi.fecha_caducidad - CURRENT_DATE)          AS dias_restantes,
+                CASE
+                    WHEN mi.fecha_caducidad IS NULL                          THEN 'OK'
+                    WHEN mi.fecha_caducidad < CURRENT_DATE                   THEN 'VENCIDO'
+                    WHEN mi.fecha_caducidad <= CURRENT_DATE + v_dias_alerta  THEN 'PRONTO'
+                    ELSE 'OK'
+                END                  AS estado,
+                al.nombre            AS almacen_nombre
+            FROM movimientos_inventario mi
+            LEFT JOIN movimientos_inventario s
+                   ON s.lote_entrada_id = mi.id
+                  AND s.registro_estado  = TRUE
+            LEFT JOIN almacenes al ON al.id = mi.almacen_id
+            JOIN productos p ON p.id = mi.producto_id
+            WHERE mi.producto_id     = p_producto_id
+              AND p.empresa_id       = p_empresa_id
+              AND mi.tipo_movimiento = 'ENTRADA'
+              AND mi.registro_estado = TRUE
+              AND mi.fecha_caducidad IS NOT NULL
+            GROUP BY mi.id, mi.fecha_movimiento, mi.fecha_caducidad, mi.cantidad, al.nombre
+            HAVING (mi.cantidad - COALESCE(SUM(s.cantidad), 0)) > 0
+            ORDER BY mi.fecha_movimiento ASC
+        ) l;
+
+        RETURN jsonb_build_object(
+            'items', COALESCE(v_items, '[]'::jsonb)
         );
 
     -- ── CATEGORIES ───────────────────────────────────────────────

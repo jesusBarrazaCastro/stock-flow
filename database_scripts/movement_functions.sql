@@ -19,7 +19,8 @@ CREATE OR REPLACE FUNCTION public.write_movimientos(
     p_proveedor_id    INT            DEFAULT NULL,
     p_notas           TEXT           DEFAULT NULL,
     p_fecha           TIMESTAMP      DEFAULT NULL,
-    p_fecha_caducidad DATE           DEFAULT NULL
+    p_fecha_caducidad DATE           DEFAULT NULL,
+    p_lote_entrada_id INT            DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -102,6 +103,36 @@ BEGIN
             );
         END IF;
 
+        -- Validar lote específico para SALIDA
+        IF p_tipo = 'SALIDA' AND p_lote_entrada_id IS NOT NULL THEN
+            DECLARE
+                v_lote_restante INT;
+            BEGIN
+                SELECT (mi.cantidad - COALESCE(SUM(s.cantidad), 0))
+                INTO v_lote_restante
+                FROM movimientos_inventario mi
+                LEFT JOIN movimientos_inventario s
+                       ON s.lote_entrada_id = mi.id
+                      AND s.registro_estado  = TRUE
+                WHERE mi.id              = p_lote_entrada_id
+                  AND mi.tipo_movimiento  = 'ENTRADA'
+                  AND mi.registro_estado  = TRUE
+                  AND mi.producto_id      = p_producto_id
+                GROUP BY mi.cantidad;
+
+                IF v_lote_restante IS NULL THEN
+                    RETURN jsonb_build_object('error', 'Lote no encontrado para este producto');
+                END IF;
+
+                IF v_lote_restante < p_cantidad THEN
+                    RETURN jsonb_build_object(
+                        'error',
+                        'Stock insuficiente en el lote seleccionado. Disponible: ' || v_lote_restante || ' unidades'
+                    );
+                END IF;
+            END;
+        END IF;
+
         v_stock_nuevo := CASE
             WHEN p_tipo = 'ENTRADA' THEN v_stock_actual + p_cantidad
             ELSE v_stock_actual - p_cantidad
@@ -113,12 +144,14 @@ BEGIN
         INSERT INTO movimientos_inventario (
             producto_id, almacen_id, usuario_id, proveedor_id,
             tipo_movimiento, cantidad, precio_unitario,
-            fecha_movimiento, notas, metodo_registro, fecha_caducidad, registro_usuario
+            fecha_movimiento, notas, metodo_registro, fecha_caducidad,
+            lote_entrada_id, registro_usuario
         ) VALUES (
             p_producto_id, v_almacen_id, p_usuario_id, p_proveedor_id,
             p_tipo, p_cantidad, p_precio,
             v_fecha_uso, p_notas, 'MANUAL',
             CASE WHEN p_tipo = 'ENTRADA' THEN p_fecha_caducidad ELSE NULL END,
+            CASE WHEN p_tipo = 'SALIDA' THEN p_lote_entrada_id ELSE NULL END,
             p_usuario_id
         )
         RETURNING id INTO v_movimiento_id;

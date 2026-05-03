@@ -5,6 +5,7 @@ import '../providers/stock_provider.dart';
 import '../services/stock_service.dart';
 import '../utilities/msg_util.dart';
 import 'catalog_screen.dart';
+import 'product_detail_screen.dart';
 import 'suppliers_screen.dart';
 
 class StockScreen extends StatefulWidget {
@@ -371,7 +372,14 @@ class _StockScreenState extends State<StockScreen> {
   Widget _buildProductItem(StockItem item) {
     final statusStyle = _resolveStatusStyle(item.estadoStock);
 
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProductDetailScreen(productoId: item.id),
+        ),
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -516,6 +524,7 @@ class _StockScreenState extends State<StockScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 

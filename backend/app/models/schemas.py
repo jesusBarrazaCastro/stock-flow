@@ -266,12 +266,31 @@ class MovimientoRegistrar(BaseModel):
     notas: Optional[str] = None
     fecha: Optional[datetime] = None
     fecha_caducidad: Optional[date] = None
+    lote_entrada_id: Optional[int] = None
 
 
 class MovimientoResponse(BaseModel):
     ok: bool
     movimiento_id: int
     stock_nuevo: int
+
+
+class CaducidadUpdate(BaseModel):
+    nueva_fecha: date
+
+
+class LoteDisponible(BaseModel):
+    movimiento_id: int
+    fecha_movimiento: Optional[str] = None
+    fecha_caducidad: Optional[str] = None
+    cantidad_restante: int
+    dias_restantes: Optional[int] = None
+    estado: str = 'OK'
+    almacen_nombre: Optional[str] = None
+
+
+class LotesDisponiblesResponse(BaseModel):
+    items: List[LoteDisponible]
 
 
 class AlmacenItem(BaseModel):

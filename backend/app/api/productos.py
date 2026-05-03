@@ -10,6 +10,7 @@ from ..models.schemas import (
     ProductoCatalogCreate,
     CategoriasList,
     CaducidadListResponse,
+    LotesDisponiblesResponse,
 )
 
 router = APIRouter(prefix="/productos", tags=["productos"])
@@ -142,6 +143,18 @@ def update_producto(
         body.tiene_caducidad,
     )
     if "error" in data:
+        raise HTTPException(status_code=400, detail=data["error"])
+    return data
+
+
+@router.get("/{producto_id}/lotes-disponibles", response_model=LotesDisponiblesResponse)
+def get_lotes_disponibles(
+    producto_id: int,
+    token_payload: dict = Depends(get_current_user_token),
+):
+    empresa_id = _get_empresa_id(token_payload)
+    data = _call_sp("public.read_productos", "lotes_disponibles", empresa_id, producto_id)
+    if isinstance(data, dict) and "error" in data:
         raise HTTPException(status_code=400, detail=data["error"])
     return data
 

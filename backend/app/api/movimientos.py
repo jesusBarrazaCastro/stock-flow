@@ -3,7 +3,7 @@ from typing import Optional
 
 from ..services.db_service import execute_query
 from ..core.security import get_current_user_token
-from ..models.schemas import MovimientoRegistrar, MovimientoResponse
+from ..models.schemas import MovimientoRegistrar, MovimientoResponse, CaducidadUpdate
 
 router = APIRouter(prefix="/movimientos", tags=["movimientos"])
 
@@ -54,9 +54,29 @@ def registrar_movimiento(
         body.notas,
         body.fecha,
         body.fecha_caducidad,
+        body.lote_entrada_id,
     )
 
     if "error" in data:
         raise HTTPException(status_code=400, detail=data["error"])
 
     return MovimientoResponse(**data)
+
+
+@router.patch("/{movimiento_id}/caducidad")
+def actualizar_caducidad(
+    movimiento_id: int,
+    body: CaducidadUpdate,
+    token_payload: dict = Depends(get_current_user_token),
+):
+    empresa_id, _ = _get_empresa_usuario(token_payload)
+    data = _call_sp(
+        "public.write_lotes",
+        "update_caducidad",
+        empresa_id,
+        movimiento_id,
+        body.nueva_fecha,
+    )
+    if "error" in data:
+        raise HTTPException(status_code=400, detail=data["error"])
+    return data

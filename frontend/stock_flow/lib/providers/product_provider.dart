@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../services/product_service.dart';
+import '../services/movimiento_service.dart';
 
 class ProductProvider extends ChangeNotifier {
   final ProductService _service = ProductService();
+  final MovimientoService _movimientoService = MovimientoService();
 
   List<CatalogoProducto> _productos = [];
   ProductoDetalle? _selectedProducto;
@@ -122,6 +124,18 @@ class ProductProvider extends ChangeNotifier {
   void setPage(int page) {
     _currentPage = page;
     loadCatalogo();
+  }
+
+  Future<String?> updateCaducidad(int movimientoId, DateTime nuevaFecha) async {
+    try {
+      await _movimientoService.updateCaducidad(movimientoId, nuevaFecha);
+      if (_selectedProducto != null) {
+        await loadDetalle(_selectedProducto!.id);
+      }
+      return null;
+    } catch (e) {
+      return e.toString().replaceFirst('Exception: ', '');
+    }
   }
 
   void clearSelectedProducto() {

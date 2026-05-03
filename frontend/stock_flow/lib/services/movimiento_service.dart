@@ -37,6 +37,7 @@ class MovimientoRegistroRequest {
   final String? notas;
   final DateTime? fecha;
   final DateTime? fechaCaducidad;
+  final int? loteEntradaId;
 
   const MovimientoRegistroRequest({
     required this.productoId,
@@ -48,6 +49,7 @@ class MovimientoRegistroRequest {
     this.notas,
     this.fecha,
     this.fechaCaducidad,
+    this.loteEntradaId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -64,6 +66,7 @@ class MovimientoRegistroRequest {
               '${fechaCaducidad!.year.toString().padLeft(4, '0')}-'
               '${fechaCaducidad!.month.toString().padLeft(2, '0')}-'
               '${fechaCaducidad!.day.toString().padLeft(2, '0')}',
+        if (loteEntradaId != null) 'lote_entrada_id': loteEntradaId,
       };
 }
 
@@ -109,6 +112,28 @@ class MovimientoService {
       throw Exception(body?['detail'] ?? 'Error ${response.statusCode}');
     } catch (e) {
       debugPrint('[MovimientoService.registrarMovimiento] $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateCaducidad(int movimientoId, DateTime nuevaFecha) async {
+    try {
+      final body = {
+        'nueva_fecha':
+            '${nuevaFecha.year.toString().padLeft(4, '0')}-'
+            '${nuevaFecha.month.toString().padLeft(2, '0')}-'
+            '${nuevaFecha.day.toString().padLeft(2, '0')}',
+      };
+      final response = await _api.patch(
+        '/movimientos/$movimientoId/caducidad',
+        body: body,
+      );
+      if (response.statusCode != 200) {
+        final b = jsonDecode(response.body) as Map<String, dynamic>?;
+        throw Exception(b?['detail'] ?? 'Error ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('[MovimientoService.updateCaducidad] $e');
       rethrow;
     }
   }

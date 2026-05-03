@@ -114,12 +114,18 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
       return;
     }
 
+    final tieneCaducidad =
+        provider.productoSeleccionado?.tieneCaducidad == true;
+    if (!_isEntry && tieneCaducidad && provider.loteSeleccionado == null) {
+      MsgtUtil.showWarning(context, 'Selecciona un lote para la salida');
+      return;
+    }
+
     final precio = double.tryParse(
         _priceController.text.replaceAll(',', '.'));
 
     final req = MovimientoRegistroRequest(
       productoId: provider.productoSeleccionado!.id,
-      // almacenId omitido: la SP auto-selecciona el primero disponible
       tipo: _isEntry ? 'ENTRADA' : 'SALIDA',
       cantidad: _quantity,
       precioUnitario: precio,
@@ -129,6 +135,8 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
           : _notesController.text.trim(),
       fecha: _selectedDate,
       fechaCaducidad: _isEntry ? _selectedFechaCaducidad : null,
+      loteEntradaId:
+          !_isEntry && tieneCaducidad ? provider.loteSeleccionado?.movimientoId : null,
     );
 
     final error = await provider.registrar(req);
@@ -247,6 +255,14 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
                         const SizedBox(height: 24),
                       ],
 
+                      // ── Selector de Lote (SALIDA + producto expirable) ──
+                      if (!_isEntry &&
+                          provider.productoSeleccionado?.tieneCaducidad == true) ...[
+                        _buildLabel('Lote a Consumir'),
+                        _buildLoteSelector(provider),
+                        const SizedBox(height: 24),
+                      ],
+
                       // ── Notas ─────────────────────────────────
                       _buildLabel('Notas Adicionales'),
                       _buildNotesField(),
@@ -318,12 +334,22 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
               title: 'Salida',
               icon: Icons.logout_rounded,
               isSelected: !_isEntry,
-              onTap: () => setState(() {
-                _isEntry = false;
-                _priceController.clear();
-                _selectedProveedor = null;
-                _selectedFechaCaducidad = null;
-              }),
+              onTap: () {
+                setState(() {
+                  _isEntry = false;
+                  _priceController.clear();
+                  _selectedProveedor = null;
+                  _selectedFechaCaducidad = null;
+                });
+                final prod = context
+                    .read<MovimientoProvider>()
+                    .productoSeleccionado;
+                if (prod != null && prod.tieneCaducidad) {
+                  context
+                      .read<MovimientoProvider>()
+                      .loadLotesDisponibles(prod.id);
+                }
+              },
             ),
           ),
         ],
@@ -516,10 +542,12 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
                 onTap: () {
                   provider.seleccionarProducto(item);
                   _searchController.clear();
-                  // Autocompletar precio solo en ENTRADA
                   if (_isEntry && item.precioUnitario > 0) {
                     _priceController.text =
                         item.precioUnitario.toStringAsFixed(2);
+                  }
+                  if (!_isEntry && item.tieneCaducidad) {
+                    provider.loadLotesDisponibles(item.id);
                   }
                   setState(() => _showSearchResults = false);
                 },
@@ -852,6 +880,203 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
                   ),
                 ),
         ),
+      ),
+    );
+  }
+
+  String _formatLoteDate(String? iso) {
+    if (iso == null) return '—';
+    try {
+      return DateFormat('dd/MM/yyyy').format(DateTime.parse(iso));
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  Widget _buildLoteSelector(MovimientoProvider provider) {
+    if (provider.isLoadingLotes) return _buildLoadingField();
+
+    if (provider.lotesDisponibles.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          'Sin lotes disponibles',
+          style: GoogleFonts.manrope(color: AppTheme.textLight, fontSize: 15),
+        ),
+      );
+    }
+
+    final lote = provider.loteSeleccionado;
+    final color = lote?.estado == 'VENCIDO'
+        ? AppTheme.error
+        : lote?.estado == 'PRONTO'
+            ? const Color(0xFFD97706)
+            : AppTheme.tertiary;
+
+    return GestureDetector(
+      onTap: () => _showLotePicker(provider),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppTheme.primaryDark.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    lote != null
+                        ? 'Lote #${lote.movimientoId}'
+                        : 'Seleccionar lote...',
+                    style: GoogleFonts.manrope(
+                      color: AppTheme.textDark,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                  if (lote != null)
+                    Text(
+                      'Vence: ${_formatLoteDate(lote.fechaCaducidad)} · ${lote.cantidadRestante} disponibles',
+                      style: GoogleFonts.manrope(
+                        fontSize: 11,
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const Icon(Icons.keyboard_arrow_down_rounded,
+                color: AppTheme.textLight),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLotePicker(MovimientoProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.neutral,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+            child: Text(
+              'Seleccionar Lote',
+              style: TextStyle(
+                fontFamily: 'Noto Serif',
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textDark,
+              ),
+            ),
+          ),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              itemCount: provider.lotesDisponibles.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) {
+                final lote = provider.lotesDisponibles[i];
+                final isSelected =
+                    provider.loteSeleccionado?.movimientoId == lote.movimientoId;
+                final color = lote.estado == 'VENCIDO'
+                    ? AppTheme.error
+                    : lote.estado == 'PRONTO'
+                        ? const Color(0xFFD97706)
+                        : AppTheme.tertiary;
+
+                return GestureDetector(
+                  onTap: () {
+                    provider.seleccionarLote(lote);
+                    Navigator.pop(ctx);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.primaryDark.withValues(alpha: 0.08)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppTheme.primaryDark
+                            : Colors.grey.shade200,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(Icons.inventory_2_outlined,
+                              color: color, size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Lote #${lote.movimientoId}',
+                                style: GoogleFonts.manrope(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textDark,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                'Vence: ${_formatLoteDate(lote.fechaCaducidad)} · ${lote.cantidadRestante} disponibles',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 11,
+                                  color: color,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (lote.almacenNombre != null)
+                                Text(
+                                  lote.almacenNombre!,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 11,
+                                    color: AppTheme.textLight,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        if (isSelected)
+                          Icon(Icons.check_circle_rounded,
+                              color: AppTheme.primaryDark, size: 20),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
